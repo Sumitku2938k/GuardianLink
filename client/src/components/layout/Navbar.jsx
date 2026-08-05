@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, X, Shield } from "lucide-react";
+import { Menu, X, Shield, LayoutDashboard } from "lucide-react";
 import { NAV_LINKS } from "@/constants/landingData";
 
 export const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,6 +23,8 @@ export const Navbar = () => {
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
       setIsMobileMenuOpen(false);
+    } else {
+      navigate("/");
     }
   };
 
@@ -69,16 +73,27 @@ export const Navbar = () => {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <button className="px-5 py-2.5 text-sm font-semibold text-primary hover:bg-gray-100 rounded-lg transition-colors">
-              Login
-            </button>
-            <motion.button
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary to-blue-700 rounded-lg hover:shadow-lg transition-shadow"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <Link
+              to="/dashboard"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-primary hover:bg-gray-100/80 rounded-lg transition-colors flex items-center gap-1.5"
             >
-              Get Started
-            </motion.button>
+              <LayoutDashboard className="w-4 h-4 text-primary" />
+              <span>Dashboard</span>
+            </Link>
+            <Link
+              to="/login"
+              className="px-5 py-2.5 text-sm font-semibold text-primary hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Login
+            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                to="/register"
+                className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary to-blue-700 rounded-lg hover:shadow-lg transition-shadow inline-block"
+              >
+                Get Started
+              </Link>
+            </motion.div>
           </div>
 
           {/* Mobile Menu Button */}
@@ -109,12 +124,27 @@ export const Navbar = () => {
                 </button>
               ))}
               <div className="border-t border-gray-200 pt-4 mt-2 flex flex-col gap-2">
-                <button className="px-4 py-2 text-sm font-semibold text-primary">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-gray-700 flex items-center gap-2"
+                >
+                  <LayoutDashboard className="w-4 h-4 text-primary" /> Dashboard
+                </Link>
+                <Link
+                  to="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-primary"
+                >
                   Login
-                </button>
-                <button className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-primary to-blue-700 rounded-lg">
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-primary to-blue-700 rounded-lg text-center"
+                >
                   Get Started
-                </button>
+                </Link>
               </div>
             </div>
           </motion.div>
