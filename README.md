@@ -118,7 +118,7 @@ GuardianLink Sem 5/
    ```bash
    cd client
    ```
-2. Install standard dependencies:
+2. Install dependencies:
    ```bash
    npm install
    ```
@@ -127,6 +127,22 @@ GuardianLink Sem 5/
    npm run dev
    ```
 4. Access the web app at `http://localhost:5173/`.
+
+### Run the Server Application
+
+1. Navigate to the server directory:
+   ```bash
+   cd server
+   ```
+2. Install backend dependencies:
+   ```bash
+   npm install
+   ```
+3. Boot the API development server (uses `nodemon`):
+   ```bash
+   npm run dev
+   ```
+4. Verify the server is active by accessing the health endpoint at `http://localhost:5000/api/health`.
 
 ---
 *Developed with 🛡️ by GuardianLink Team — Child Safety Initiative.*
