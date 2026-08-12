@@ -17,6 +17,7 @@ export const DashboardLayout = () => {
     const path = location.pathname;
     if (path === "/dashboard") return "dashboard";
     if (path.startsWith("/parent/children")) return "children";
+    if (path.startsWith("/parent/missing-cases")) return "missing";
     
     // Fallback/check query params for other tabs
     const queryParams = new URLSearchParams(location.search);
@@ -31,6 +32,8 @@ export const DashboardLayout = () => {
       navigate("/dashboard");
     } else if (tabId === "children") {
       navigate("/parent/children");
+    } else if (tabId === "missing") {
+      navigate("/parent/missing-cases");
     } else {
       navigate(`/dashboard?tab=${tabId}`);
     }
