@@ -18,6 +18,10 @@ export const DashboardLayout = () => {
     if (path === "/dashboard") return "dashboard";
     if (path.startsWith("/parent/children")) return "children";
     if (path.startsWith("/parent/missing-cases")) return "missing";
+    if (path.startsWith("/citizen/dashboard")) return "dashboard";
+    if (path.startsWith("/citizen/reports")) return "notifications";
+    if (path.startsWith("/citizen/notifications")) return "notifications";
+    if (path.startsWith("/citizen/profile")) return "settings";
     
     // Fallback/check query params for other tabs
     const queryParams = new URLSearchParams(location.search);
@@ -56,7 +60,7 @@ export const DashboardLayout = () => {
         <TopNavbar
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onLogout={handleLogout}
-          onOpenNotifications={() => navigate("/dashboard?tab=notifications")}
+          onOpenNotifications={() => navigate("/citizen/notifications")}
           unreadCount={3}
         />
 
@@ -71,8 +75,8 @@ export const DashboardLayout = () => {
             <span>© 2026 GuardianLink. AI Neural Protection Engine Status: Operational</span>
             <div className="flex items-center gap-4">
               <button onClick={() => navigate("/dashboard?tab=help")} className="hover:underline">Support</button>
-              <button onClick={() => navigate("/dashboard?tab=settings")} className="hover:underline">Privacy</button>
-              <button onClick={() => navigate("/dashboard?tab=settings")} className="hover:underline">Terms</button>
+              <button onClick={() => navigate("/citizen/profile")} className="hover:underline">Privacy</button>
+              <button onClick={() => navigate("/citizen/profile")} className="hover:underline font-bold text-teal-500">Citizen Mode</button>
             </div>
           </div>
         </footer>
