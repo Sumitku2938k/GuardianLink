@@ -22,12 +22,27 @@ import CitizenReportDetails from "@/pages/citizen/CitizenReportDetails";
 import CitizenNotifications from "@/pages/citizen/CitizenNotifications";
 import CitizenProfile from "@/pages/citizen/CitizenProfile";
 
+import PoliceDashboard from "@/pages/police/PoliceDashboard";
+import PoliceCasesList from "@/pages/police/PoliceCasesList";
+import PoliceCaseDetails from "@/pages/police/PoliceCaseDetails";
+import PoliceCaseInvestigation from "@/pages/police/PoliceCaseInvestigation";
+import PoliceCaseMatches from "@/pages/police/PoliceCaseMatches";
+import PoliceFoundReports from "@/pages/police/PoliceFoundReports";
+import PoliceAssignments from "@/pages/police/PoliceAssignments";
+import PoliceAnalytics from "@/pages/police/PoliceAnalytics";
+import PoliceNotifications from "@/pages/police/PoliceNotifications";
+import PoliceProfile from "@/pages/police/PoliceProfile";
+
 import NotFound from "@/pages/NotFound";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { PoliceLayout } from "@/components/police/PoliceLayout";
+
 import { ChildrenProvider } from "@/context/ChildrenContext";
 import { MissingCasesProvider } from "@/context/MissingCasesContext";
 import { CitizenProvider } from "@/context/CitizenContext";
+import { PoliceProvider } from "@/context/PoliceContext";
+
 import "@/styles/global.css";
 
 export default function App() {
@@ -36,41 +51,57 @@ export default function App() {
       <ChildrenProvider>
         <MissingCasesProvider>
           <CitizenProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              
-              {/* Parent & Citizen Dashboard Frame */}
-              <Route element={<DashboardLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
+            <PoliceProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
                 
-                {/* Children Module Routes */}
-                <Route path="/parent/children" element={<MyChildren />} />
-                <Route path="/parent/children/add" element={<AddChild />} />
-                <Route path="/parent/children/:childId" element={<ChildProfile />} />
+                {/* Parent Portal & Citizen Dashboard Frame */}
+                <Route element={<DashboardLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  
+                  {/* Children Module Routes */}
+                  <Route path="/parent/children" element={<MyChildren />} />
+                  <Route path="/parent/children/add" element={<AddChild />} />
+                  <Route path="/parent/children/:childId" element={<ChildProfile />} />
 
-                {/* Missing Cases Module Routes */}
-                <Route path="/parent/missing-cases" element={<MissingCasesList />} />
-                <Route path="/parent/missing-cases/new" element={<ReportMissingCase />} />
-                <Route path="/parent/missing-cases/:caseId" element={<CaseDetails />} />
+                  {/* Missing Cases Module Routes */}
+                  <Route path="/parent/missing-cases" element={<MissingCasesList />} />
+                  <Route path="/parent/missing-cases/new" element={<ReportMissingCase />} />
+                  <Route path="/parent/missing-cases/:caseId" element={<CaseDetails />} />
 
-                {/* Citizen Module Routes */}
-                <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
-                <Route path="/citizen/found-child" element={<FoundChildStart />} />
-                <Route path="/citizen/found-child/photo" element={<FoundChildPhoto />} />
-                <Route path="/citizen/found-child/matching" element={<FoundChildMatching />} />
-                <Route path="/citizen/found-child/result" element={<FoundChildResult />} />
-                <Route path="/citizen/found-child/report" element={<FoundChildReportForm />} />
-                <Route path="/citizen/found-child/location" element={<FoundChildLocationSharing />} />
-                <Route path="/citizen/reports" element={<CitizenReportsList />} />
-                <Route path="/citizen/reports/:reportId" element={<CitizenReportDetails />} />
-                <Route path="/citizen/notifications" element={<CitizenNotifications />} />
-                <Route path="/citizen/profile" element={<CitizenProfile />} />
-              </Route>
+                  {/* Citizen Module Routes */}
+                  <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
+                  <Route path="/citizen/found-child" element={<FoundChildStart />} />
+                  <Route path="/citizen/found-child/photo" element={<FoundChildPhoto />} />
+                  <Route path="/citizen/found-child/matching" element={<FoundChildMatching />} />
+                  <Route path="/citizen/found-child/result" element={<FoundChildResult />} />
+                  <Route path="/citizen/found-child/report" element={<FoundChildReportForm />} />
+                  <Route path="/citizen/found-child/location" element={<FoundChildLocationSharing />} />
+                  <Route path="/citizen/reports" element={<CitizenReportsList />} />
+                  <Route path="/citizen/reports/:reportId" element={<CitizenReportDetails />} />
+                  <Route path="/citizen/notifications" element={<CitizenNotifications />} />
+                  <Route path="/citizen/profile" element={<CitizenProfile />} />
+                </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                {/* Specialized Police Module Layout Frame */}
+                <Route element={<PoliceLayout />}>
+                  <Route path="/police/dashboard" element={<PoliceDashboard />} />
+                  <Route path="/police/cases" element={<PoliceCasesList />} />
+                  <Route path="/police/cases/:caseId" element={<PoliceCaseDetails />} />
+                  <Route path="/police/cases/:caseId/investigation" element={<PoliceCaseInvestigation />} />
+                  <Route path="/police/cases/:caseId/matches" element={<PoliceCaseMatches />} />
+                  <Route path="/police/reports" element={<PoliceFoundReports />} />
+                  <Route path="/police/assignments" element={<PoliceAssignments />} />
+                  <Route path="/police/analytics" element={<PoliceAnalytics />} />
+                  <Route path="/police/notifications" element={<PoliceNotifications />} />
+                  <Route path="/police/profile" element={<PoliceProfile />} />
+                </Route>
+
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </PoliceProvider>
           </CitizenProvider>
         </MissingCasesProvider>
       </ChildrenProvider>
