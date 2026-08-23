@@ -60,6 +60,8 @@ import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminProfile from "@/pages/admin/AdminProfile";
 
+import Unauthorized from "@/pages/Unauthorized";
+import VerificationPending from "@/pages/VerificationPending";
 import NotFound from "@/pages/NotFound";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -67,6 +69,11 @@ import { PoliceLayout } from "@/components/police/PoliceLayout";
 import { NgoLayout } from "@/components/ngo/NgoLayout";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { RoleRoute } from "@/components/auth/RoleRoute";
+import { PublicRoute } from "@/components/auth/PublicRoute";
+
+import { AuthProvider } from "@/context/AuthContext";
 import { ChildrenProvider } from "@/context/ChildrenContext";
 import { MissingCasesProvider } from "@/context/MissingCasesContext";
 import { CitizenProvider } from "@/context/CitizenContext";
@@ -79,100 +86,124 @@ import "@/styles/global.css";
 export default function App() {
   return (
     <BrowserRouter>
-      <ChildrenProvider>
-        <MissingCasesProvider>
-          <CitizenProvider>
-            <PoliceProvider>
-              <NgoProvider>
-                <AdminProvider>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    
-                    {/* Parent Portal & Citizen Dashboard Frame */}
-                    <Route element={<DashboardLayout />}>
-                      <Route path="/dashboard" element={<Dashboard />} />
+      <AuthProvider>
+        <ChildrenProvider>
+          <MissingCasesProvider>
+            <CitizenProvider>
+              <PoliceProvider>
+                <NgoProvider>
+                  <AdminProvider>
+                    <Routes>
+                      {/* Landing Page */}
+                      <Route path="/" element={<Index />} />
                       
-                      {/* Children Module Routes */}
-                      <Route path="/parent/children" element={<MyChildren />} />
-                      <Route path="/parent/children/add" element={<AddChild />} />
-                      <Route path="/parent/children/:childId" element={<ChildProfile />} />
+                      {/* Public Auth Routes (Redirects if already logged in) */}
+                      <Route element={<PublicRoute />}>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
+                      </Route>
 
-                      {/* Missing Cases Module Routes */}
-                      <Route path="/parent/missing-cases" element={<MissingCasesList />} />
-                      <Route path="/parent/missing-cases/new" element={<ReportMissingCase />} />
-                      <Route path="/parent/missing-cases/:caseId" element={<CaseDetails />} />
+                      {/* Status Pages */}
+                      <Route path="/unauthorized" element={<Unauthorized />} />
+                      <Route path="/verification-pending" element={<VerificationPending />} />
 
-                      {/* Citizen Module Routes */}
-                      <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
-                      <Route path="/citizen/found-child" element={<FoundChildStart />} />
-                      <Route path="/citizen/found-child/photo" element={<FoundChildPhoto />} />
-                      <Route path="/citizen/found-child/matching" element={<FoundChildMatching />} />
-                      <Route path="/citizen/found-child/result" element={<FoundChildResult />} />
-                      <Route path="/citizen/found-child/report" element={<FoundChildReportForm />} />
-                      <Route path="/citizen/found-child/location" element={<FoundChildLocationSharing />} />
-                      <Route path="/citizen/reports" element={<CitizenReportsList />} />
-                      <Route path="/citizen/reports/:reportId" element={<CitizenReportDetails />} />
-                      <Route path="/citizen/notifications" element={<CitizenNotifications />} />
-                      <Route path="/citizen/profile" element={<CitizenProfile />} />
-                    </Route>
+                      {/* Authenticated Protected Routes */}
+                      <Route element={<ProtectedRoute />}>
 
-                    {/* Specialized Police Module Layout Frame */}
-                    <Route element={<PoliceLayout />}>
-                      <Route path="/police/dashboard" element={<PoliceDashboard />} />
-                      <Route path="/police/cases" element={<PoliceCasesList />} />
-                      <Route path="/police/cases/:caseId" element={<PoliceCaseDetails />} />
-                      <Route path="/police/cases/:caseId/investigation" element={<PoliceCaseInvestigation />} />
-                      <Route path="/police/cases/:caseId/matches" element={<PoliceCaseMatches />} />
-                      <Route path="/police/reports" element={<PoliceFoundReports />} />
-                      <Route path="/police/assignments" element={<PoliceAssignments />} />
-                      <Route path="/police/analytics" element={<PoliceAnalytics />} />
-                      <Route path="/police/notifications" element={<PoliceNotifications />} />
-                      <Route path="/police/profile" element={<PoliceProfile />} />
-                    </Route>
+                        {/* Parent Portal Routes */}
+                        <Route element={<RoleRoute allowedRoles={["parent"]} />}>
+                          <Route element={<DashboardLayout />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/parent/children" element={<MyChildren />} />
+                            <Route path="/parent/children/add" element={<AddChild />} />
+                            <Route path="/parent/children/:childId" element={<ChildProfile />} />
+                            <Route path="/parent/missing-cases" element={<MissingCasesList />} />
+                            <Route path="/parent/missing-cases/new" element={<ReportMissingCase />} />
+                            <Route path="/parent/missing-cases/:caseId" element={<CaseDetails />} />
+                          </Route>
+                        </Route>
 
-                    {/* Specialized NGO Shelter Layout Frame */}
-                    <Route element={<NgoLayout />}>
-                      <Route path="/ngo/dashboard" element={<NgoDashboard />} />
-                      <Route path="/ngo/children" element={<NgoChildrenList />} />
-                      <Route path="/ngo/children/:childId" element={<NgoChildProfile />} />
-                      <Route path="/ngo/intake" element={<NgoIntakeWizard />} />
-                      <Route path="/ngo/cases" element={<NgoCasesList />} />
-                      <Route path="/ngo/cases/:caseId" element={<NgoCaseDetails />} />
-                      <Route path="/ngo/shelter" element={<NgoShelterManagement />} />
-                      <Route path="/ngo/transfers" element={<NgoTransfers />} />
-                      <Route path="/ngo/notifications" element={<NgoNotifications />} />
-                      <Route path="/ngo/analytics" element={<NgoAnalytics />} />
-                      <Route path="/ngo/profile" element={<NgoProfile />} />
-                    </Route>
+                        {/* Citizen Module Routes */}
+                        <Route element={<RoleRoute allowedRoles={["citizen"]} />}>
+                          <Route element={<DashboardLayout />}>
+                            <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
+                            <Route path="/citizen/found-child" element={<FoundChildStart />} />
+                            <Route path="/citizen/found-child/photo" element={<FoundChildPhoto />} />
+                            <Route path="/citizen/found-child/matching" element={<FoundChildMatching />} />
+                            <Route path="/citizen/found-child/result" element={<FoundChildResult />} />
+                            <Route path="/citizen/found-child/report" element={<FoundChildReportForm />} />
+                            <Route path="/citizen/found-child/location" element={<FoundChildLocationSharing />} />
+                            <Route path="/citizen/reports" element={<CitizenReportsList />} />
+                            <Route path="/citizen/reports/:reportId" element={<CitizenReportDetails />} />
+                            <Route path="/citizen/notifications" element={<CitizenNotifications />} />
+                            <Route path="/citizen/profile" element={<CitizenProfile />} />
+                          </Route>
+                        </Route>
 
-                    {/* Platform Administration Module Layout Frame */}
-                    <Route element={<AdminLayout />}>
-                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                      <Route path="/admin/users" element={<AdminUsersList />} />
-                      <Route path="/admin/users/:userId" element={<AdminUserDetails />} />
-                      <Route path="/admin/organizations" element={<AdminOrgsList />} />
-                      <Route path="/admin/organizations/:organizationId" element={<AdminOrgDetails />} />
-                      <Route path="/admin/cases" element={<AdminCasesList />} />
-                      <Route path="/admin/cases/:caseId" element={<AdminCaseDetails />} />
-                      <Route path="/admin/reports" element={<AdminReportsList />} />
-                      <Route path="/admin/ai-monitoring" element={<AdminAiMonitoring />} />
-                      <Route path="/admin/notifications" element={<AdminNotifications />} />
-                      <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
-                      <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                      <Route path="/admin/settings" element={<AdminSettings />} />
-                      <Route path="/admin/profile" element={<AdminProfile />} />
-                    </Route>
+                        {/* Police Module Routes */}
+                        <Route element={<RoleRoute allowedRoles={["police"]} />}>
+                          <Route element={<PoliceLayout />}>
+                            <Route path="/police/dashboard" element={<PoliceDashboard />} />
+                            <Route path="/police/cases" element={<PoliceCasesList />} />
+                            <Route path="/police/cases/:caseId" element={<PoliceCaseDetails />} />
+                            <Route path="/police/cases/:caseId/investigation" element={<PoliceCaseInvestigation />} />
+                            <Route path="/police/cases/:caseId/matches" element={<PoliceCaseMatches />} />
+                            <Route path="/police/reports" element={<PoliceFoundReports />} />
+                            <Route path="/police/assignments" element={<PoliceAssignments />} />
+                            <Route path="/police/analytics" element={<PoliceAnalytics />} />
+                            <Route path="/police/notifications" element={<PoliceNotifications />} />
+                            <Route path="/police/profile" element={<PoliceProfile />} />
+                          </Route>
+                        </Route>
 
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AdminProvider>
-              </NgoProvider>
-            </PoliceProvider>
-          </CitizenProvider>
-        </MissingCasesProvider>
-      </ChildrenProvider>
+                        {/* NGO Shelter Module Routes */}
+                        <Route element={<RoleRoute allowedRoles={["ngo"]} />}>
+                          <Route element={<NgoLayout />}>
+                            <Route path="/ngo/dashboard" element={<NgoDashboard />} />
+                            <Route path="/ngo/children" element={<NgoChildrenList />} />
+                            <Route path="/ngo/children/:childId" element={<NgoChildProfile />} />
+                            <Route path="/ngo/intake" element={<NgoIntakeWizard />} />
+                            <Route path="/ngo/cases" element={<NgoCasesList />} />
+                            <Route path="/ngo/cases/:caseId" element={<NgoCaseDetails />} />
+                            <Route path="/ngo/shelter" element={<NgoShelterManagement />} />
+                            <Route path="/ngo/transfers" element={<NgoTransfers />} />
+                            <Route path="/ngo/notifications" element={<NgoNotifications />} />
+                            <Route path="/ngo/analytics" element={<NgoAnalytics />} />
+                            <Route path="/ngo/profile" element={<NgoProfile />} />
+                          </Route>
+                        </Route>
+
+                        {/* Platform Administration Routes */}
+                        <Route element={<RoleRoute allowedRoles={["admin"]} />}>
+                          <Route element={<AdminLayout />}>
+                            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                            <Route path="/admin/users" element={<AdminUsersList />} />
+                            <Route path="/admin/users/:userId" element={<AdminUserDetails />} />
+                            <Route path="/admin/organizations" element={<AdminOrgsList />} />
+                            <Route path="/admin/organizations/:organizationId" element={<AdminOrgDetails />} />
+                            <Route path="/admin/cases" element={<AdminCasesList />} />
+                            <Route path="/admin/cases/:caseId" element={<AdminCaseDetails />} />
+                            <Route path="/admin/reports" element={<AdminReportsList />} />
+                            <Route path="/admin/ai-monitoring" element={<AdminAiMonitoring />} />
+                            <Route path="/admin/notifications" element={<AdminNotifications />} />
+                            <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
+                            <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                            <Route path="/admin/settings" element={<AdminSettings />} />
+                            <Route path="/admin/profile" element={<AdminProfile />} />
+                          </Route>
+                        </Route>
+
+                      </Route>
+
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AdminProvider>
+                </NgoProvider>
+              </PoliceProvider>
+            </CitizenProvider>
+          </MissingCasesProvider>
+        </ChildrenProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

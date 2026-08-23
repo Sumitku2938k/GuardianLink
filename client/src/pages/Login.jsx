@@ -16,8 +16,13 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
+import { useAuth } from "@/context/AuthContext";
+import { getRoleDashboardRoute } from "@/utils/authRedirect";
+
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
@@ -31,33 +36,32 @@ export default function Login() {
     const newErrors = {};
     if (!identifier.trim()) {
       newErrors.identifier = "Please enter your email address or phone number";
-    } else if (
-      identifier.includes("@") &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
-    ) {
-      newErrors.identifier = "Please enter a valid email address";
     }
 
     if (!password) {
       newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsLoading(true);
-    // Simulate authentication delay
-    setTimeout(() => {
+    setErrors({});
+
+    try {
+      const loggedInUser = await login(identifier, password);
+      const targetRoute = getRoleDashboardRoute(loggedInUser.role, loggedInUser.status);
+      navigate(targetRoute, { replace: true });
+    } catch (err) {
+      setErrors({ server: err.message || "Invalid credentials. Please try again." });
+    } finally {
       setIsLoading(false);
-      navigate("/dashboard");
-    }, 1200);
+    }
   };
 
   const handleForgotPassword = (e) => {
@@ -175,6 +179,14 @@ export default function Login() {
                   Log in to manage your family safety portal
                 </p>
               </div>
+
+              {/* Server Error Alert Banner */}
+              {errors.server && (
+                <div className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{errors.server}</span>
+                </div>
+              )}
 
               {/* Form */}
               <form onSubmit={handleLogin} className="space-y-4">

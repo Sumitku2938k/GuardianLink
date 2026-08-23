@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/context/AuthContext";
+import { getRoleDashboardRoute } from "@/utils/authRedirect";
 
 const ROLES = [
   {
@@ -55,8 +57,11 @@ const ROLES = [
 
 export default function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
+
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedRole, setSelectedRole] = useState("parent");
+  const [registeredUserObj, setRegisteredUserObj] = useState(null);
 
   // Step 2 state
   const [personalData, setPersonalData] = useState({
@@ -144,7 +149,7 @@ export default function Register() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (currentStep === 1) {
       setCurrentStep(2);
     } else if (currentStep === 2) {
@@ -162,10 +167,25 @@ export default function Register() {
     } else if (currentStep === 4) {
       if (validateStep4()) {
         setIsLoading(true);
-        setTimeout(() => {
-          setIsLoading(false);
+        setErrors({});
+        try {
+          const resUser = await register({
+            fullName: personalData.fullName,
+            phone: personalData.phone,
+            email: personalData.email,
+            password: personalData.password,
+            role: selectedRole,
+            city: profileData.city,
+            state: profileData.state,
+            pinCode: profileData.pinCode
+          });
+          setRegisteredUserObj(resUser);
           setCurrentStep(5); // Final Success Step
-        }, 1200);
+        } catch (err) {
+          setErrors({ server: err.message || "Registration failed. Please check inputs." });
+        } finally {
+          setIsLoading(false);
+        }
       }
     }
   };
@@ -551,6 +571,12 @@ export default function Register() {
                     onChange={(e) => setProfileData({ ...profileData, pinCode: e.target.value })}
                     error={errors.pinCode}
                   />
+
+                  {errors.server && (
+                    <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
+                      <span>{errors.server}</span>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -575,29 +601,32 @@ export default function Register() {
                     Registration Complete!
                   </h2>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 leading-relaxed">
-                    Welcome to GuardianLink. Your account profile is fully verified and connected to our AI protective network.
+                    Welcome to GuardianLink. Your account profile is initialized and connected to our AI protective network.
                   </p>
                 </div>
 
                 <div className="p-4 bg-gray-50 dark:bg-slate-800/60 rounded-2xl text-left border border-gray-100 dark:border-slate-800 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
                     <span>Account Role:</span>
-                    <strong className="capitalize text-primary font-bold">{selectedRole}</strong>
+                    <strong className="capitalize text-primary font-bold">{registeredUserObj?.role || selectedRole}</strong>
                   </div>
                   <div className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                    <span>Verification Status:</span>
-                    <strong className="text-emerald-500 font-bold">✓ Active & Secured</strong>
+                    <span>Account Status:</span>
+                    <strong className="text-emerald-500 font-bold capitalize">✓ {registeredUserObj?.status || "Active"}</strong>
                   </div>
                 </div>
 
                 <Button
-                  onClick={() => navigate("/dashboard")}
+                  onClick={() => {
+                    const route = getRoleDashboardRoute(registeredUserObj?.role || selectedRole, registeredUserObj?.status);
+                    navigate(route, { replace: true });
+                  }}
                   variant="primary"
                   size="lg"
                   className="w-full"
                   rightIcon={ArrowRight}
                 >
-                  Continue to Parent Dashboard
+                  Continue to My Portal
                 </Button>
               </motion.div>
             )}
