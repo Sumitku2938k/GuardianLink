@@ -4,12 +4,16 @@ import { useNgo } from "@/context/NgoContext";
 import { NgoSidebar } from "./NgoSidebar";
 import { NgoTopNavbar } from "./NgoTopNavbar";
 
+import { useAuth } from "@/context/AuthContext";
+
 export const NgoLayout = () => {
   const navigate = useNavigate();
   const { currentNgo } = useNgo();
+  const { logout } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

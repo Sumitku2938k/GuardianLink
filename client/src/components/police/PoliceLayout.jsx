@@ -4,12 +4,16 @@ import { usePolice } from "@/context/PoliceContext";
 import { PoliceSidebar } from "./PoliceSidebar";
 import { PoliceTopNavbar } from "./PoliceTopNavbar";
 
+import { useAuth } from "@/context/AuthContext";
+
 export const PoliceLayout = () => {
   const navigate = useNavigate();
   const { currentOfficer, currentStation, setCurrentStation } = usePolice();
+  const { logout } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

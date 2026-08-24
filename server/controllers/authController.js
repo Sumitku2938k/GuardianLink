@@ -7,9 +7,21 @@ const { delSession } = require("../config/redis");
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, role, city, state, pinCode, adminSecret } = req.body;
+    const { fullName, email, phone, password, role, city, state, pinCode, adminSecret } = req.body || {};
 
-    const requestedRole = (role || "parent").toLowerCase();
+    const safeName = (fullName || "").trim();
+    const safeEmail = (email || "").toLowerCase().trim();
+    const safePhone = (phone || "").trim();
+    const safePassword = password || "";
+    const requestedRole = (role || "parent").toLowerCase().trim();
+
+    if (!safeName || !safeEmail || !safePhone || !safePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name, email address, phone number, and password are required.",
+        code: "MISSING_REQUIRED_FIELDS"
+      });
+    }
 
     // Prevent unrestricted public admin registration
     if (requestedRole === "admin") {
@@ -25,11 +37,11 @@ exports.register = async (req, res, next) => {
 
     // Check for existing user with duplicate email or phone
     const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { phone: phone.trim() }]
+      $or: [{ email: safeEmail }, { phone: safePhone }]
     });
 
     if (existingUser) {
-      const isEmailMatch = existingUser.email.toLowerCase() === email.toLowerCase();
+      const isEmailMatch = existingUser.email && existingUser.email.toLowerCase() === safeEmail;
       return res.status(400).json({
         success: false,
         message: isEmailMatch
@@ -50,16 +62,16 @@ exports.register = async (req, res, next) => {
 
     // Create MongoDB User Document
     const user = new User({
-      name: fullName.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone.trim(),
-      passwordHash: password,
+      name: safeName,
+      email: safeEmail,
+      phone: safePhone,
+      passwordHash: safePassword,
       role: requestedRole,
       status: accountStatus,
       isVerified: isVerified,
-      city: city || "",
-      state: state || "",
-      pinCode: pinCode || "",
+      city: (city || "").trim(),
+      state: (state || "").trim(),
+      pinCode: (pinCode || "").trim(),
       lastLogin: new Date()
     });
 
@@ -77,13 +89,24 @@ exports.register = async (req, res, next) => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
-    const { identifier, password } = req.body;
+    const { identifier, password } = req.body || {};
 
-    const trimmedIdentifier = identifier.trim().toLowerCase();
+    const rawIdentifier = (identifier || "").trim();
+    const safePassword = password || "";
+
+    if (!rawIdentifier || !safePassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email/phone and password are required.",
+        code: "MISSING_CREDENTIALS"
+      });
+    }
+
+    const lowerIdentifier = rawIdentifier.toLowerCase();
 
     // Search user by email or phone (include passwordHash)
     const user = await User.findOne({
-      $or: [{ email: trimmedIdentifier }, { phone: identifier.trim() }]
+      $or: [{ email: lowerIdentifier }, { phone: rawIdentifier }]
     }).select("+passwordHash");
 
     if (!user) {
@@ -104,7 +127,7 @@ exports.login = async (req, res, next) => {
     }
 
     // Verify Password Hash
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await user.comparePassword(safePassword);
     if (!isMatch) {
       return res.status(401).json({
         success: false,

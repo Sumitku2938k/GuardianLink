@@ -3,12 +3,16 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopNavbar } from "@/components/dashboard/TopNavbar";
 
+import { useAuth } from "@/context/AuthContext";
+
 export const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 

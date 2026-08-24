@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminTopNavbar } from "./AdminTopNavbar";
 
 export const AdminLayout = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col antialiased selection:bg-indigo-500 selection:text-white">

@@ -30,17 +30,20 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:3000",
   "http://localhost:5173",
-  "http://127.0.0.1:3000"
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:5173"
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(null, true); // Permissive in dev mode for testing
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+      // Return origin string explicitly for credentialed requests
+      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        return callback(null, origin);
       }
+      return callback(null, origin);
     },
     credentials: true
   })

@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # 1. MongoDB Database Container
+  mongo:
+    image: mongo:latest
+    container_name: guardianlink-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  # 2. Redis In-Memory Cache Container
+  redis:
+    image: redis:7-alpine
+    container_name: guardianlink-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # 3. Node.js Express Backend API Container
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: guardianlink-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      CLIENT_URL: http://localhost:3000
+      MONGO_URI: mongodb://mongo:27017/guardianlink
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: guardianlink_super_secret_jwt_key_2026_safe_child_platform
+      SESSION_SECRET: guardianlink_session_secret_key_889911
+      COOKIE_SECRET: guardianlink_cookie_secret_key_774411
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    depends_on:
+      - mongo
+      - redis
+
+  # 4. React Vite Frontend Client Container
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: guardianlink-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_BASE_URL: http://localhost:5000
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - server
+
+volumes:
+  mongo_data:
+  redis_data:

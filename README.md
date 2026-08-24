@@ -144,17 +144,26 @@ GuardianLink Sem 5/
    ```
 4. Verify the server is active by accessing the health endpoint at `http://localhost:5000/api/health`.
 
-### Run the Production Docker Setup for redis in server
+### Run Full-Stack Docker Container Suite (MongoDB + Redis + Backend + Frontend)
 
-1. Navigate to the server directory:
-   ```bash
-   cd server
-   ```
-2. Start Redis and other services in background:
-   ```bash
-   docker compose up
-   ```
-3. Verify the server is active by accessing the health endpoint at `http://localhost:5000/api/health`.
+Run the entire application stack with a single command from the **root directory**:
+
+```bash
+# 1. Start all containers (MongoDB, Redis, Express Server, React Frontend)
+docker compose up -d
+
+# 2. View running logs across all microservices
+docker compose logs -f
+
+# 3. Stop all services
+docker compose down
+```
+
+#### Dockerized Service Mappings:
+- **Frontend App**: `http://localhost:3000`
+- **Backend API**: `http://localhost:5000`
+- **MongoDB Database**: `localhost:27017`
+- **Redis Cache**: `localhost:6379`
 
 ---
 *Developed with 🛡️ by GuardianLink Team — Child Safety Initiative.*
