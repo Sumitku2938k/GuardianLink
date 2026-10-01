@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # 1. MongoDB Database Container
   mongo:
-    image: mongo:latest
+    image: mongo:8.0
     container_name: guardianlink-mongo
     restart: unless-stopped
     ports:
