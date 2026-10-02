@@ -9,8 +9,6 @@ import {
   Sparkles,
   CheckCircle2,
   AlertCircle,
-  Eye,
-  EyeOff,
   UserCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";

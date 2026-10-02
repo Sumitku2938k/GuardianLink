@@ -81,6 +81,12 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+
+  /* Prevent duplicate browser-native password reveal and clear controls */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
 }
 
 @layer components {

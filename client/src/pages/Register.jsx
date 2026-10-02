@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Award,
   Check,
+  ShieldCheck,
+  Hash,
 } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -409,7 +411,7 @@ export default function Register() {
                     label="Confirm Password"
                     type="password"
                     placeholder="••••••••••••"
-                    icon={Lock}
+                    icon={ShieldCheck}
                     required
                     value={personalData.confirmPassword}
                     onChange={(e) => setPersonalData({ ...personalData, confirmPassword: e.target.value })}
@@ -548,6 +550,7 @@ export default function Register() {
                   <Input
                     label="City"
                     placeholder="e.g. New Delhi"
+                    icon={MapPin}
                     required
                     value={profileData.city}
                     onChange={(e) => setProfileData({ ...profileData, city: e.target.value })}
@@ -557,6 +560,7 @@ export default function Register() {
                   <Input
                     label="State"
                     placeholder="e.g. Delhi"
+                    icon={MapPin}
                     required
                     value={profileData.state}
                     onChange={(e) => setProfileData({ ...profileData, state: e.target.value })}
@@ -566,6 +570,7 @@ export default function Register() {
                   <Input
                     label="PIN Code"
                     placeholder="110001"
+                    icon={Hash}
                     required
                     value={profileData.pinCode}
                     onChange={(e) => setProfileData({ ...profileData, pinCode: e.target.value })}
