@@ -19,18 +19,23 @@ export const DashboardLayout = () => {
   // Determine active tab for sidebar styling based on current path
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path === "/dashboard") return "dashboard";
-    if (path.startsWith("/parent/children")) return "children";
-    if (path.startsWith("/parent/missing-cases")) return "missing";
-    if (path.startsWith("/citizen/dashboard")) return "dashboard";
-    if (path.startsWith("/citizen/reports")) return "notifications";
-    if (path.startsWith("/citizen/notifications")) return "notifications";
-    if (path.startsWith("/citizen/profile")) return "settings";
-    
-    // Fallback/check query params for other tabs
     const queryParams = new URLSearchParams(location.search);
     const tabParam = queryParams.get("tab");
+
+    // If query param is explicitly passed on /dashboard (e.g. /dashboard?tab=notifications), respect it
     if (tabParam) return tabParam;
+
+    // Route-specific matching (handles nested child/case routes appropriately)
+    if (path.startsWith("/parent/children")) return "children";
+    if (path.startsWith("/parent/missing-cases")) return "missing";
+    if (path.startsWith("/parent/notifications") || path.startsWith("/citizen/notifications") || path.startsWith("/citizen/reports")) return "notifications";
+    if (path.startsWith("/parent/timeline")) return "timeline";
+    if (path.startsWith("/parent/settings") || path.startsWith("/citizen/profile")) return "settings";
+    if (path.startsWith("/parent/help") || path.startsWith("/parent/help-support")) return "help";
+    
+    if (path === "/dashboard" || path === "/parent/dashboard" || path.startsWith("/citizen/dashboard")) {
+      return "dashboard";
+    }
 
     return "dashboard";
   };
@@ -42,6 +47,14 @@ export const DashboardLayout = () => {
       navigate("/parent/children");
     } else if (tabId === "missing") {
       navigate("/parent/missing-cases");
+    } else if (tabId === "notifications") {
+      navigate("/parent/notifications");
+    } else if (tabId === "timeline") {
+      navigate("/parent/timeline");
+    } else if (tabId === "settings") {
+      navigate("/parent/settings");
+    } else if (tabId === "help") {
+      navigate("/parent/help");
     } else {
       navigate(`/dashboard?tab=${tabId}`);
     }
@@ -64,7 +77,7 @@ export const DashboardLayout = () => {
         <TopNavbar
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onLogout={handleLogout}
-          onOpenNotifications={() => navigate("/citizen/notifications")}
+          onOpenNotifications={() => navigate("/parent/notifications")}
           unreadCount={3}
         />
 
@@ -78,7 +91,7 @@ export const DashboardLayout = () => {
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
             <span>© 2026 GuardianLink. AI Neural Protection Engine Status: Operational</span>
             <div className="flex items-center gap-4">
-              <button onClick={() => navigate("/dashboard?tab=help")} className="hover:underline">Support</button>
+              <button onClick={() => navigate("/parent/help")} className="hover:underline">Support</button>
               <button onClick={() => navigate("/citizen/profile")} className="hover:underline">Privacy</button>
               <button onClick={() => navigate("/citizen/profile")} className="hover:underline font-bold text-teal-500">Citizen Mode</button>
             </div>

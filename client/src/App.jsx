@@ -114,12 +114,18 @@ export default function App() {
                         <Route element={<RoleRoute allowedRoles={["parent"]} />}>
                           <Route element={<DashboardLayout />}>
                             <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/parent/dashboard" element={<Dashboard />} />
                             <Route path="/parent/children" element={<MyChildren />} />
                             <Route path="/parent/children/add" element={<AddChild />} />
                             <Route path="/parent/children/:childId" element={<ChildProfile />} />
                             <Route path="/parent/missing-cases" element={<MissingCasesList />} />
                             <Route path="/parent/missing-cases/new" element={<ReportMissingCase />} />
                             <Route path="/parent/missing-cases/:caseId" element={<CaseDetails />} />
+                            <Route path="/parent/notifications" element={<Dashboard defaultTab="notifications" />} />
+                            <Route path="/parent/timeline" element={<Dashboard defaultTab="timeline" />} />
+                            <Route path="/parent/settings" element={<Dashboard defaultTab="settings" />} />
+                            <Route path="/parent/help" element={<Dashboard defaultTab="help" />} />
+                            <Route path="/parent/help-support" element={<Dashboard defaultTab="help" />} />
                           </Route>
                         </Route>
 

@@ -43,12 +43,12 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-export default function Dashboard() {
+export default function Dashboard({ defaultTab }) {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   
-  // Tab state derived from URL query parameters
-  const activeTab = searchParams.get("tab") || "dashboard";
+  // Tab state derived from URL query parameters, defaultTab prop, or fallback
+  const activeTab = searchParams.get("tab") || defaultTab || "dashboard";
 
   // Consume Centralized Children State
   const { children: childrenList, addChild: handleRegisterSuccess } = useChildren();
@@ -70,7 +70,15 @@ export default function Dashboard() {
   };
 
   const handleTabChange = (tabId) => {
-    setSearchParams({ tab: tabId });
+    if (tabId === "dashboard") {
+      navigate("/dashboard");
+    } else if (tabId === "children") {
+      navigate("/parent/children");
+    } else if (tabId === "missing") {
+      navigate("/parent/missing-cases");
+    } else {
+      navigate(`/parent/${tabId}`);
+    }
   };
 
   return (

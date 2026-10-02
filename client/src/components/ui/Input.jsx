@@ -39,7 +39,7 @@ export const Input = React.forwardRef(
 
         <div className="relative flex items-center">
           {Icon && (
-            <div className="absolute left-3.5 text-gray-400 pointer-events-none flex items-center justify-center">
+            <div className="absolute left-3.5 z-10 text-gray-400 pointer-events-none flex items-center justify-center">
               <Icon className="w-5 h-5" />
             </div>
           )}
@@ -65,14 +65,14 @@ export const Input = React.forwardRef(
           {isPasswordType ? (
             <button
               type="button"
-              tabIndex={-1}
+              aria-label={showPassword ? "Hide password" : "Show password"}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              className="absolute right-3.5 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors focus:outline-none focus:text-primary"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           ) : (
-            rightElement && <div className="absolute right-3.5">{rightElement}</div>
+            rightElement && <div className="absolute right-3.5 z-10">{rightElement}</div>
           )}
         </div>
 
