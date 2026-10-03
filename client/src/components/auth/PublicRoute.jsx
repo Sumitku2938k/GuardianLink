@@ -4,10 +4,11 @@ import { useAuth } from "@/context/AuthContext";
 import { getRoleDashboardRoute } from "@/utils/authRedirect";
 
 export const PublicRoute = () => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, isInitialized } = useAuth();
 
-  if (isLoading) {
-    return null; // Avoid flashing login page during startup auth check
+  // Wait until authentication initialization finishes to avoid premature redirects or resetting forms
+  if (!isInitialized || isLoading) {
+    return null;
   }
 
   if (isAuthenticated && user) {

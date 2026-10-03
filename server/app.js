@@ -7,20 +7,26 @@ require("dotenv").config();
 // Database & Cache Services
 const connectDB = require("./config/db");
 const { initRedis } = require("./config/redis");
+const bootstrapAdmin = require("./utils/bootstrapAdmin");
 
 // Route Imports
 const rootRoutes = require("./routes/rootRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 // Middleware Imports
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
-// Initialize Database & Redis Cache
-connectDB();
-initRedis();
+// Initialize Database, Admin bootstrap & Redis Cache
+const initializeServices = async () => {
+  await connectDB();
+  await bootstrapAdmin();
+  initRedis();
+};
+initializeServices();
 
 // Security HTTP Headers
 app.use(helmet());
@@ -60,6 +66,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use("/", rootRoutes);
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Catch 404 & forward to error handler
 app.use((req, res, next) => {

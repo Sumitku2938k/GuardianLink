@@ -1,9 +1,22 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Users, ArrowLeft, ShieldCheck, Lock, Edit2, History, AlertTriangle } from "lucide-react";
+import {
+  Users,
+  ArrowLeft,
+  ShieldCheck,
+  Lock,
+  Edit2,
+  History,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  MapPin
+} from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { UserRoleModal } from "@/components/admin/UserRoleModal";
 import { UserSuspendModal } from "@/components/admin/UserSuspendModal";
+import { UserRejectModal } from "@/components/admin/UserRejectModal";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 
@@ -11,11 +24,21 @@ export default function AdminUserDetails() {
   const { userId } = useParams();
   const navigate = useNavigate();
 
-  const { users, handleUpdateUserRole, handleSuspendUser, handleActivateUser } = useAdmin();
+  const {
+    users,
+    handleApproveUser,
+    handleRejectUser,
+    handleUpdateUserRole,
+    handleSuspendUser,
+    handleActivateUser
+  } = useAdmin();
+
   const user = users.find((u) => u.id === userId) || users[0];
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   if (!user) {
     return (
@@ -28,15 +51,53 @@ export default function AdminUserDetails() {
     );
   }
 
+  const isPending = user.verificationStatus === "Pending";
+
+  const onApprove = async () => {
+    setIsApproving(true);
+    try {
+      await handleApproveUser(user.id);
+    } catch (err) {
+      alert("Failed to approve user: " + (err.response?.data?.message || err.message));
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER toolbar */}
-      <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-200">
         <Button variant="outline" size="sm" onClick={() => navigate("/admin/users")} leftIcon={ArrowLeft}>
           Back to Users List
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isPending && (
+            <>
+              <Button
+                onClick={onApprove}
+                variant="primary"
+                size="sm"
+                disabled={isApproving}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
+                leftIcon={CheckCircle2}
+              >
+                {isApproving ? "Approving..." : "Approve Application"}
+              </Button>
+
+              <Button
+                onClick={() => setIsRejectModalOpen(true)}
+                variant="danger"
+                size="sm"
+                className="bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
+                leftIcon={XCircle}
+              >
+                Reject Application
+              </Button>
+            </>
+          )}
+
           <Button
             onClick={() => setIsRoleModalOpen(true)}
             variant="outline"
@@ -83,7 +144,9 @@ export default function AdminUserDetails() {
                   className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
                     user.verificationStatus === "Verified"
                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : "bg-amber-50 text-amber-800 border border-amber-200"
+                      : user.verificationStatus === "Pending"
+                      ? "bg-amber-50 text-amber-800 border border-amber-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200"
                   }`}
                 >
                   {user.verificationStatus}
@@ -101,7 +164,17 @@ export default function AdminUserDetails() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-4 border-t border-gray-150">
+        {user.verificationStatus === "Rejected" && user.rejectionReason && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1">
+            <strong className="text-rose-800 font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+              Application Rejection Reason:
+            </strong>
+            <p className="text-rose-700">{user.rejectionReason}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs pt-4 border-t border-gray-150">
           <div>
             <span className="text-slate-400 block text-[10px] uppercase font-mono">Phone Contact</span>
             <strong className="text-slate-800 block mt-0.5">{user.phone}</strong>
@@ -116,6 +189,13 @@ export default function AdminUserDetails() {
             <span className="text-slate-400 block text-[10px] uppercase font-mono">Associated Organization</span>
             <strong className="text-indigo-700 block mt-0.5">{user.organization || "Independent Individual"}</strong>
           </div>
+
+          <div>
+            <span className="text-slate-400 block text-[10px] uppercase font-mono">Location</span>
+            <strong className="text-slate-800 block mt-0.5">
+              {[user.city, user.state].filter(Boolean).join(", ") || "Not Specified"}
+            </strong>
+          </div>
         </div>
       </Card>
 
@@ -129,18 +209,18 @@ export default function AdminUserDetails() {
         <div className="space-y-2.5 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-gray-150 flex justify-between items-center">
             <div>
-              <strong className="text-slate-900 block font-bold">2FA Authentication Verified</strong>
-              <span className="text-[10px] text-slate-500 font-mono">Login IP: 182.74.92.11 (New Delhi, India)</span>
+              <strong className="text-slate-900 block font-bold">Registration Verification Status</strong>
+              <span className="text-[10px] text-slate-500 font-mono">Current state: {user.verificationStatus}</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">Today, 08:30 AM</span>
+            <span className="text-[10px] text-slate-400 font-mono">{user.registeredDate}</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-gray-150 flex justify-between items-center">
             <div>
-              <strong className="text-slate-900 block font-bold">Role Verification Granted</strong>
-              <span className="text-[10px] text-slate-500 font-mono">Verified by Admin Dr. Vikram Sethi</span>
+              <strong className="text-slate-900 block font-bold">Account Access Standing</strong>
+              <span className="text-[10px] text-slate-500 font-mono">Account state: {user.accountStatus}</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">05 Nov 2025</span>
+            <span className="text-[10px] text-slate-400 font-mono">{user.lastActive}</span>
           </div>
         </div>
       </Card>
@@ -159,6 +239,15 @@ export default function AdminUserDetails() {
         user={user}
         onConfirmSuspend={(uId, reason) => handleSuspendUser(uId, reason)}
       />
+
+      {isRejectModalOpen && (
+        <UserRejectModal
+          isOpen={isRejectModalOpen}
+          onClose={() => setIsRejectModalOpen(false)}
+          user={user}
+          onConfirmReject={(uId, reason) => handleRejectUser(uId, reason)}
+        />
+      )}
     </div>
   );
 }

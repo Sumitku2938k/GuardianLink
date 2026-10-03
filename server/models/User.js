@@ -46,8 +46,16 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "pending", "suspended", "deactivated"],
+      enum: ["active", "pending", "approved", "rejected", "suspended", "deactivated"],
       default: "active"
+    },
+    organization: {
+      type: String,
+      default: ""
+    },
+    rejectionReason: {
+      type: String,
+      default: ""
     },
     city: {
       type: String,

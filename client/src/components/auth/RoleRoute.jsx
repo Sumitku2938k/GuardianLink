@@ -21,14 +21,21 @@ export const RoleRoute = ({ allowedRoles = [] }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Pending Police / NGO account status check
-  if (user.status === "pending" && (user.role === "police" || user.role === "ngo")) {
+  const userRole = (user.role || "").toLowerCase().trim();
+  const userStatus = (user.status || "").toLowerCase().trim();
+
+  // If user account is suspended or deactivated, block access
+  if (userStatus === "suspended" || userStatus === "deactivated") {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Pending or rejected Police / NGO account cannot access operational dashboards
+  if ((userStatus === "pending" || userStatus === "rejected") && (userRole === "police" || userRole === "ngo")) {
     return <Navigate to="/verification-pending" replace />;
   }
 
   // Check if role is authorized
-  const userRole = (user.role || "").toLowerCase();
-  const normalizedAllowed = allowedRoles.map((r) => r.toLowerCase());
+  const normalizedAllowed = allowedRoles.map((r) => r.toLowerCase().trim());
 
   if (!normalizedAllowed.includes(userRole)) {
     return <Navigate to="/unauthorized" replace />;

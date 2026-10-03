@@ -1,19 +1,123 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import api from "@/lib/axios";
+import { useAuth } from "@/context/AuthContext";
 
 const AdminContext = createContext();
 
 export const AdminProvider = ({ children }) => {
+  const { user: authUser } = useAuth();
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
   // Current Admin User Details
   const [currentAdmin, setCurrentAdmin] = useState({
     id: "ADM-8801",
-    name: "Dr. Vikram Sethi",
-    email: "admin.vikram@guardianlink.gov.in",
-    role: "Super Admin",
+    name: "Platform Administrator",
+    email: "admin@guardianlink.local",
+    role: "System Admin",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-    phone: "+91 98110 00999",
-    securityStatus: "2FA Enabled • High Clearance",
-    lastLogin: "Today, 08:30 AM"
+    phone: "+91 98765 00001",
+    securityStatus: "2FA Enabled • System Clearance",
+    lastLogin: "Active Now"
   });
+
+  // Sync currentAdmin with logged-in admin user and fetch live users
+  useEffect(() => {
+    if (authUser && authUser.role === "admin") {
+      setCurrentAdmin({
+        id: authUser.id || "ADM-001",
+        name: authUser.name || "GuardianLink Administrator",
+        email: authUser.email,
+        role: "System Administrator",
+        avatar:
+          authUser.profilePhoto ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name || "Admin")}&background=4f46e5&color=fff`,
+        phone: authUser.phone || "+91 98765 00001",
+        securityStatus: "2FA Enabled • System Clearance",
+        lastLogin: "Active Now"
+      });
+      fetchUsers();
+    }
+  }, [authUser]);
+
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await api.get("/api/admin/users");
+      if (res.data && res.data.success && Array.isArray(res.data.users)) {
+        const mappedUsers = res.data.users.map((u) => {
+          const roleDisplay =
+            u.role === "ngo"
+              ? "NGO"
+              : u.role === "police"
+              ? "Police"
+              : u.role === "citizen"
+              ? "Citizen"
+              : u.role === "parent"
+              ? "Parent"
+              : u.role === "admin"
+              ? "Admin"
+              : u.role;
+
+          const verificationStatus =
+            u.status === "approved" || (u.isVerified && u.status !== "pending" && u.status !== "rejected")
+              ? "Verified"
+              : u.status === "rejected"
+              ? "Rejected"
+              : "Pending";
+
+          const accountStatus = u.status === "suspended" ? "Suspended" : "Active";
+
+          const registeredDate = u.createdAt
+            ? new Date(u.createdAt).toLocaleDateString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+              })
+            : "Recent";
+
+          return {
+            id: u.id || u._id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone,
+            role: roleDisplay,
+            rawRole: u.role,
+            status: u.status,
+            verificationStatus,
+            accountStatus,
+            registeredDate,
+            lastActive: u.lastLogin ? "Recent" : "Never",
+            organization: u.organization || "",
+            city: u.city || "",
+            state: u.state || "",
+            rejectionReason: u.rejectionReason || "",
+            avatar:
+              u.profilePhoto ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name)}&background=4f46e5&color=fff`
+          };
+        });
+
+        setUsers(mappedUsers);
+
+        const pendingCount = mappedUsers.filter((u) => u.verificationStatus === "Pending").length;
+        const verifiedOrgs = mappedUsers.filter(
+          (u) => (u.rawRole === "police" || u.rawRole === "ngo") && u.verificationStatus === "Verified"
+        ).length;
+
+        setPlatformStats((prev) => ({
+          ...prev,
+          totalUsers: mappedUsers.length,
+          pendingVerifications: pendingCount,
+          verifiedOrganizations: verifiedOrgs,
+          lastUpdate: "Just now"
+        }));
+      }
+    } catch (err) {
+      console.warn("Could not fetch admin users from backend:", err.message);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
 
   // Platform Overall Overview Stats
   const [platformStats, setPlatformStats] = useState({
@@ -432,10 +536,63 @@ export const AdminProvider = ({ children }) => {
   });
 
   // Admin Actions & Handler Functions
-  const handleUpdateUserRole = (userId, newRole) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-    );
+  const handleApproveUser = async (userId) => {
+    try {
+      const res = await api.patch(`/api/admin/users/${userId}/approve`);
+      if (res.data && res.data.success) {
+        await fetchUsers();
+        const newAudit = {
+          id: `AUD-${Date.now().toString().slice(-4)}`,
+          timestamp: "Just now",
+          actor: currentAdmin.name,
+          role: "Admin",
+          action: `Approved account verification for user ID ${userId}`,
+          entity: "User",
+          entityId: userId,
+          result: "Approved"
+        };
+        setAuditLogs((prev) => [newAudit, ...prev]);
+        return res.data;
+      }
+    } catch (err) {
+      console.error("Failed to approve user:", err);
+      throw err;
+    }
+  };
+
+  const handleRejectUser = async (userId, rejectionReason) => {
+    try {
+      const res = await api.patch(`/api/admin/users/${userId}/reject`, { rejectionReason });
+      if (res.data && res.data.success) {
+        await fetchUsers();
+        const newAudit = {
+          id: `AUD-${Date.now().toString().slice(-4)}`,
+          timestamp: "Just now",
+          actor: currentAdmin.name,
+          role: "Admin",
+          action: `Rejected account verification. Reason: ${rejectionReason || "Credentials could not be verified."}`,
+          entity: "User",
+          entityId: userId,
+          result: "Rejected"
+        };
+        setAuditLogs((prev) => [newAudit, ...prev]);
+        return res.data;
+      }
+    } catch (err) {
+      console.error("Failed to reject user:", err);
+      throw err;
+    }
+  };
+
+  const handleUpdateUserRole = async (userId, newRole) => {
+    try {
+      await api.patch(`/api/admin/users/${userId}/role`, { role: newRole });
+      await fetchUsers();
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
+    }
     const newAudit = {
       id: `AUD-${Date.now().toString().slice(-4)}`,
       timestamp: "Just now",
@@ -449,10 +606,15 @@ export const AdminProvider = ({ children }) => {
     setAuditLogs((prev) => [newAudit, ...prev]);
   };
 
-  const handleSuspendUser = (userId, reason) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, accountStatus: "Suspended" } : u))
-    );
+  const handleSuspendUser = async (userId, reason) => {
+    try {
+      await api.patch(`/api/admin/users/${userId}/suspend`, { reason });
+      await fetchUsers();
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, accountStatus: "Suspended" } : u))
+      );
+    }
     const newAudit = {
       id: `AUD-${Date.now().toString().slice(-4)}`,
       timestamp: "Just now",
@@ -466,10 +628,15 @@ export const AdminProvider = ({ children }) => {
     setAuditLogs((prev) => [newAudit, ...prev]);
   };
 
-  const handleActivateUser = (userId) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, accountStatus: "Active" } : u))
-    );
+  const handleActivateUser = async (userId) => {
+    try {
+      await api.patch(`/api/admin/users/${userId}/activate`);
+      await fetchUsers();
+    } catch (err) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, accountStatus: "Active" } : u))
+      );
+    }
   };
 
   const handleVerifyOrganization = (orgId, decision) => {
@@ -520,6 +687,8 @@ export const AdminProvider = ({ children }) => {
         criticalAlerts,
         activityFeed,
         users,
+        isLoadingUsers,
+        fetchUsers,
         organizations,
         adminCases,
         adminReports,
@@ -529,6 +698,8 @@ export const AdminProvider = ({ children }) => {
         auditLogs,
         systemSettings,
         setSystemSettings,
+        handleApproveUser,
+        handleRejectUser,
         handleUpdateUserRole,
         handleSuspendUser,
         handleActivateUser,

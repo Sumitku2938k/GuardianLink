@@ -37,6 +37,10 @@ services:
       JWT_SECRET: guardianlink_super_secret_jwt_key_2026_safe_child_platform
       SESSION_SECRET: guardianlink_session_secret_key_889911
       COOKIE_SECRET: guardianlink_cookie_secret_key_774411
+      ADMIN_NAME: GuardianLink Administrator
+      ADMIN_EMAIL: admin@guardianlink.local
+      ADMIN_PASSWORD: AdminDev@GuardianLink2026!
+      ADMIN_PHONE: "9999900000"
     volumes:
       - ./server:/app
       - /app/node_modules

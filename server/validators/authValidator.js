@@ -19,9 +19,19 @@ const validateRegisterInput = (req, res, next) => {
     errors.push("Password must be at least 6 characters long");
   }
 
-  const validRoles = ["parent", "citizen", "police", "ngo", "admin"];
-  if (role && !validRoles.includes(role.toLowerCase())) {
-    errors.push(`Invalid role specified. Must be one of: ${validRoles.join(", ")}`);
+  const validRoles = ["parent", "citizen", "police", "ngo"];
+  if (role) {
+    const normalizedRole = role.toLowerCase().trim();
+    if (normalizedRole === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Administrator accounts cannot be created via public registration.",
+        code: "ADMIN_REGISTRATION_FORBIDDEN"
+      });
+    }
+    if (!validRoles.includes(normalizedRole)) {
+      errors.push(`Invalid role specified. Must be one of: ${validRoles.join(", ")}`);
+    }
   }
 
   if (errors.length > 0) {

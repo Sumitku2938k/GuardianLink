@@ -7,7 +7,7 @@ const { delSession } = require("../config/redis");
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { fullName, email, phone, password, role, city, state, pinCode, adminSecret } = req.body || {};
+    const { fullName, email, phone, password, role, city, state, pinCode, organization } = req.body || {};
 
     const safeName = (fullName || "").trim();
     const safeEmail = (email || "").toLowerCase().trim();
@@ -23,16 +23,13 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Prevent unrestricted public admin registration
+    // Forbid public administrator registration
     if (requestedRole === "admin") {
-      const validAdminSecret = process.env.ADMIN_REGISTRATION_SECRET || "guardianlink_admin_dev_pass_2026";
-      if (!adminSecret || adminSecret !== validAdminSecret) {
-        return res.status(403).json({
-          success: false,
-          message: "Unrestricted public administrator signup is prohibited. Administrator accounts must be provisioned by existing authorities.",
-          code: "ADMIN_SIGNUP_RESTRICTED"
-        });
-      }
+      return res.status(403).json({
+        success: false,
+        message: "Administrator accounts cannot be created via public registration.",
+        code: "ADMIN_REGISTRATION_FORBIDDEN"
+      });
     }
 
     // Check for existing user with duplicate email or phone
@@ -69,6 +66,7 @@ exports.register = async (req, res, next) => {
       role: requestedRole,
       status: accountStatus,
       isVerified: isVerified,
+      organization: (organization || "").trim(),
       city: (city || "").trim(),
       state: (state || "").trim(),
       pinCode: (pinCode || "").trim(),
@@ -117,12 +115,20 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // Check if user is suspended
+    // Check if user is suspended or deactivated
     if (user.status === "suspended") {
       return res.status(403).json({
         success: false,
         message: "Your account has been suspended. Please contact platform support.",
         code: "ACCOUNT_SUSPENDED"
+      });
+    }
+
+    if (user.status === "deactivated") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated. Please contact platform support.",
+        code: "ACCOUNT_DEACTIVATED"
       });
     }
 

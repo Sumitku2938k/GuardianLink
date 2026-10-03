@@ -86,6 +86,7 @@ export default function Register() {
     city: "",
     state: "",
     pinCode: "",
+    organization: "",
     photo: null,
   });
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -144,6 +145,12 @@ export default function Register() {
 
   const validateStep4 = () => {
     const newErrors = {};
+    if ((selectedRole === "police" || selectedRole === "ngo") && !profileData.organization.trim()) {
+      newErrors.organization =
+        selectedRole === "police"
+          ? "Department / Police Station name is required"
+          : "Organization / Shelter name is required";
+    }
     if (!profileData.city.trim()) newErrors.city = "City is required";
     if (!profileData.state.trim()) newErrors.state = "State is required";
     if (!profileData.pinCode.trim()) newErrors.pinCode = "PIN code is required";
@@ -177,12 +184,20 @@ export default function Register() {
             email: personalData.email,
             password: personalData.password,
             role: selectedRole,
+            organization: profileData.organization,
             city: profileData.city,
             state: profileData.state,
             pinCode: profileData.pinCode
           });
+
+          // For Police and NGO, immediately navigate to verification-pending
+          if (selectedRole === "police" || selectedRole === "ngo") {
+            navigate("/verification-pending", { replace: true });
+            return;
+          }
+
           setRegisteredUserObj(resUser);
-          setCurrentStep(5); // Final Success Step
+          setCurrentStep(5); // Final Success Step for Parent / Citizen
         } catch (err) {
           setErrors({ server: err.message || "Registration failed. Please check inputs." });
         } finally {
@@ -537,6 +552,28 @@ export default function Register() {
                     </label>
                   )}
                 </div>
+
+                {(selectedRole === "police" || selectedRole === "ngo") && (
+                  <Input
+                    label={
+                      selectedRole === "police"
+                        ? "Police Station / Department"
+                        : "NGO / Shelter Organization Name"
+                    }
+                    placeholder={
+                      selectedRole === "police"
+                        ? "e.g. Delhi Central Metro Police Station"
+                        : "e.g. Helping Hands Child Welfare Shelter"
+                    }
+                    icon={Building2}
+                    required
+                    value={profileData.organization}
+                    onChange={(e) =>
+                      setProfileData({ ...profileData, organization: e.target.value })
+                    }
+                    error={errors.organization}
+                  />
+                )}
 
                 <Input
                   label="Residential Address"

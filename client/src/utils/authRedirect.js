@@ -1,9 +1,18 @@
 export const getRoleDashboardRoute = (role, status) => {
-  if (status === "pending") {
-    return "/verification-pending";
+  const normalizedStatus = (status || "").toLowerCase().trim();
+  const normalizedRole = (role || "").toLowerCase().trim();
+
+  // For Police and NGO accounts awaiting admin approval or rejected
+  if (normalizedRole === "police" || normalizedRole === "ngo") {
+    if (normalizedStatus === "pending" || normalizedStatus === "rejected") {
+      return "/verification-pending";
+    }
   }
 
-  const normalizedRole = (role || "").toLowerCase();
+  // Any general pending or rejected status
+  if (normalizedStatus === "pending" || normalizedStatus === "rejected") {
+    return "/verification-pending";
+  }
 
   switch (normalizedRole) {
     case "parent":
