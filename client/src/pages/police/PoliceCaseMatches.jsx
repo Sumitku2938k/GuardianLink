@@ -27,7 +27,8 @@ export default function PoliceCaseMatches() {
     );
   }
 
-  const matches = potentialMatches.filter((m) => m.caseId === caseData.id || m.childId === caseData.childId);
+  const safePotentialMatches = Array.isArray(potentialMatches) ? potentialMatches : [];
+  const matches = safePotentialMatches.filter((m) => m.caseId === caseData.id || m.childId === caseData.childId);
 
   const handleVerifyClick = (match) => {
     setSelectedMatch(match);

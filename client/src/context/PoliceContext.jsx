@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "./AuthContext";
 
 const PoliceContext = createContext();
 
@@ -11,6 +12,7 @@ export const usePolice = () => {
 };
 
 export const PoliceProvider = ({ children }) => {
+  const { user } = useAuth();
   // Police Station & Active Officer Identity
   const [currentStation, setCurrentStation] = useState("Delhi Central Metro Police Post - Sector 12");
   const [currentOfficer, setCurrentOfficer] = useState({
@@ -250,6 +252,119 @@ export const PoliceProvider = ({ children }) => {
     ]
   });
 
+  // Dynamically sync active officer and station from authenticated police session
+  useEffect(() => {
+    if (user && user.role === "police") {
+      setCurrentOfficer((prev) => ({
+        ...prev,
+        id: user.id || user._id || prev.id,
+        name: user.name || prev.name,
+        badgeNumber: user.phone ? `DL-POL-${user.phone.slice(-4)}` : prev.badgeNumber,
+        station: user.organization || prev.station,
+        email: user.email || prev.email
+      }));
+      if (user.organization) {
+        setCurrentStation(`${user.organization} - Child Protection Unit`);
+      }
+    }
+  }, [user]);
+
+  // AI Vector Potential Candidate Matches Queue
+  const [potentialMatches, setPotentialMatches] = useState([
+    {
+      id: "pm-101",
+      caseId: "MC-2026-8821",
+      caseNumber: "MC-2026-8821",
+      childId: "3",
+      childName: "Kabir Mehta",
+      matchPhoto: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
+      confidenceScore: "94.8%",
+      matchDate: "2026-08-08 16:10",
+      location: "Metro Station Exit 4B CCTV Camera #12",
+      verificationStatus: "Awaiting Verification",
+      isVerified: false,
+      notes: "AI facial vector match triggered on public CCTV feed. High confidence match on eye-to-nose geometry."
+    },
+    {
+      id: "pm-102",
+      caseId: "MC-2026-8821",
+      caseNumber: "MC-2026-8821",
+      childId: "3",
+      childName: "Kabir Mehta",
+      matchPhoto: "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
+      confidenceScore: "81.2%",
+      matchDate: "2026-08-08 15:40",
+      location: "Bus Terminal Platform 2",
+      verificationStatus: "Under Review by Police Desk",
+      isVerified: false,
+      notes: "Possible candidate match flagged by citizen upload."
+    },
+    {
+      id: "pm-103",
+      caseId: "MC-2026-4431",
+      caseNumber: "MC-2026-4431",
+      childId: "4",
+      childName: "Rhea Kapoor",
+      matchPhoto: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80",
+      confidenceScore: "89.5%",
+      matchDate: "2026-08-09 11:45",
+      location: "City Mall Exit Gate 2 CCTV",
+      verificationStatus: "Awaiting Verification",
+      isVerified: false,
+      notes: "AI facial similarity match on mall surveillance feed."
+    }
+  ]);
+
+  // Citizen Found Child Reports Queue for Police Verification
+  const [foundReports, setFoundReports] = useState([
+    {
+      id: "CR-2026-9041",
+      reportNumber: "CR-2026-9041",
+      date: "2026-08-11 16:30",
+      location: "Sector 14 Public Library Kiosk",
+      landmark: "Near Central Metro Gate 3",
+      approxAge: "8 years",
+      approxGender: "Male",
+      clothing: "Blue T-shirt, navy trousers, red backpack",
+      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
+      status: "Match Found",
+      safetyState: "Safe in Library Reading Room",
+      matchedCaseId: "MC-2026-8821",
+      matchedChildName: "Kabir Mehta"
+    },
+    {
+      id: "CR-2026-3180",
+      reportNumber: "CR-2026-3180",
+      date: "2026-08-10 11:15",
+      location: "Railway Station Gate #2",
+      landmark: "Opposite Ticket Counter B",
+      approxAge: "6 years",
+      approxGender: "Female",
+      clothing: "Yellow T-shirt, blue denim shorts",
+      photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
+      status: "Under Review",
+      safetyState: "Safe with Railway Protection Force Post",
+      matchedCaseId: null,
+      matchedChildName: null
+    }
+  ]);
+
+  // Loading & Error states
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const refreshData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    } catch (err) {
+      setError("Unable to load latest station data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Station Analytics Data
   const [stationAnalytics, setStationAnalytics] = useState({
     totalMissing: 48,
@@ -389,6 +504,20 @@ export const PoliceProvider = ({ children }) => {
 
   // Human Officer AI Match Verification Decision
   const verifyMatchDecision = (caseId, matchId, decision, notes) => {
+    setPotentialMatches((prev) =>
+      prev.map((m) => {
+        if (m.id === matchId) {
+          return {
+            ...m,
+            verificationStatus: decision === "confirm" ? "Verified Match" : decision === "reject" ? "Rejected Match" : "Evidence Requested",
+            isVerified: decision === "confirm",
+            verificationNotes: notes || ""
+          };
+        }
+        return m;
+      })
+    );
+
     // Decision: 'confirm' | 'reject' | 'request_evidence'
     if (decision === "confirm") {
       updateCaseStatus(caseId, "Found");
@@ -438,12 +567,21 @@ export const PoliceProvider = ({ children }) => {
         currentStation,
         setCurrentStation,
         currentOfficer,
+        setCurrentOfficer,
         officers,
         policeCases,
+        setPoliceCases,
+        potentialMatches,
+        setPotentialMatches,
+        foundReports,
+        setFoundReports,
         investigationNotes,
         investigationTasks,
         stationAnalytics,
         policeNotifications,
+        isLoading,
+        error,
+        refreshData,
         assignOfficer,
         updateCaseStatus,
         addInvestigationNote,

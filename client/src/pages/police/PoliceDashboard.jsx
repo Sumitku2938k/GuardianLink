@@ -21,25 +21,71 @@ import { Button } from "@/components/ui/Button";
 
 export default function PoliceDashboard() {
   const navigate = useNavigate();
-  const { policeCases, potentialMatches, foundReports, stationAnalytics, currentOfficer, currentStation } = usePolice();
+  const {
+    policeCases,
+    potentialMatches,
+    foundReports,
+    stationAnalytics,
+    currentOfficer,
+    currentStation,
+    isLoading,
+    error,
+    refreshData
+  } = usePolice();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
 
-  const criticalCases = policeCases.filter((c) => c.priority === "Critical" && c.status !== "Closed");
+  const safePoliceCases = Array.isArray(policeCases) ? policeCases : [];
+  const safePotentialMatches = Array.isArray(potentialMatches) ? potentialMatches : [];
+  const safeFoundReports = Array.isArray(foundReports) ? foundReports : [];
+  const safeAnalytics = stationAnalytics || {};
+  const safeOfficer = currentOfficer || {};
 
-  const filteredCases = policeCases.filter((c) => {
+  const criticalCases = safePoliceCases.filter((c) => c?.priority === "Critical" && c?.status !== "Closed");
+
+  const filteredCases = safePoliceCases.filter((c) => {
+    const caseNumber = c?.caseNumber || "";
+    const childName = c?.childName || "";
+    const lastSeenLocation = c?.lastSeenLocation || "";
+    const status = c?.status || "";
+    const priority = c?.priority || "";
+
     const matchesSearch =
-      c.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastSeenLocation.toLowerCase().includes(searchQuery.toLowerCase());
+      caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lastSeenLocation.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === "All" || c.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesPriority = priorityFilter === "All" || c.priority.toLowerCase() === priorityFilter.toLowerCase();
+    const matchesStatus = statusFilter === "All" || status.toLowerCase() === statusFilter.toLowerCase();
+    const matchesPriority = priorityFilter === "All" || priority.toLowerCase() === priorityFilter.toLowerCase();
 
     return matchesSearch && matchesStatus && matchesPriority;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+        <span className="text-xs font-mono text-slate-400">Loading station command dashboard...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 rounded-2xl bg-slate-900 border border-red-500/30 text-center space-y-4 max-w-lg mx-auto my-12">
+        <div className="w-12 h-12 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center mx-auto">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <h3 className="text-base font-bold text-white">Unable to load dashboard data</h3>
+        <p className="text-xs text-slate-400">{error || "A connection error occurred while loading police station records."}</p>
+        <Button onClick={refreshData} variant="primary" className="bg-blue-600 hover:bg-blue-500 text-xs">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -47,12 +93,14 @@ export default function PoliceDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-teal-400 uppercase tracking-wider">{currentStation}</span>
+            <span className="text-xs font-mono font-bold text-teal-400 uppercase tracking-wider">
+              {currentStation || "Police Command Center"}
+            </span>
             <span className="text-slate-600">•</span>
-            <span className="text-xs text-slate-400 font-mono">{currentOfficer.shift}</span>
+            <span className="text-xs text-slate-400 font-mono">{safeOfficer.shift || "Active Duty"}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Good afternoon, {currentOfficer.name}
+            Good afternoon, {safeOfficer.name || "Officer"}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Operational child-safety case management & live emergency dispatch.
@@ -65,7 +113,7 @@ export default function PoliceDashboard() {
             variant="primary"
             className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
           >
-            Manage Active Cases ({policeCases.length})
+            Manage Active Cases ({safePoliceCases.length})
           </Button>
         </div>
       </div>
@@ -77,7 +125,7 @@ export default function PoliceDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Missing Cases"
-          value={policeCases.filter((c) => c.status !== "Closed").length}
+          value={safePoliceCases.filter((c) => c?.status !== "Closed").length}
           subtitle="Station Monitored"
           icon={AlertTriangle}
           colorScheme="rose"
@@ -93,7 +141,7 @@ export default function PoliceDashboard() {
 
         <StatCard
           title="Potential AI Matches"
-          value={potentialMatches.length}
+          value={safePotentialMatches.length}
           subtitle="Awaiting Verification"
           icon={Cpu}
           colorScheme="amber"
@@ -101,7 +149,7 @@ export default function PoliceDashboard() {
 
         <StatCard
           title="Found Child Reports"
-          value={foundReports.length}
+          value={safeFoundReports.length}
           subtitle="Citizen Queue"
           icon={FileText}
           colorScheme="blue"
@@ -120,7 +168,7 @@ export default function PoliceDashboard() {
             <div>
               <div className="flex justify-between font-semibold mb-1">
                 <span className="text-rose-400">Critical Priority</span>
-                <span>{policeCases.filter((c) => c.priority === "Critical").length} cases</span>
+                <span>{safePoliceCases.filter((c) => c?.priority === "Critical").length} cases</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
                 <div className="h-full bg-red-600 rounded-full" style={{ width: "35%" }} />
@@ -130,7 +178,7 @@ export default function PoliceDashboard() {
             <div>
               <div className="flex justify-between font-semibold mb-1">
                 <span className="text-rose-400">High Priority</span>
-                <span>{policeCases.filter((c) => c.priority === "High").length} cases</span>
+                <span>{safePoliceCases.filter((c) => c?.priority === "High").length} cases</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
                 <div className="h-full bg-rose-500 rounded-full" style={{ width: "45%" }} />
@@ -140,7 +188,7 @@ export default function PoliceDashboard() {
             <div>
               <div className="flex justify-between font-semibold mb-1">
                 <span className="text-amber-400">Medium Priority</span>
-                <span>{policeCases.filter((c) => c.priority === "Medium").length} cases</span>
+                <span>{safePoliceCases.filter((c) => c?.priority === "Medium").length} cases</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
                 <div className="h-full bg-amber-500 rounded-full" style={{ width: "20%" }} />
@@ -158,12 +206,12 @@ export default function PoliceDashboard() {
           <div className="grid grid-cols-2 gap-3 text-xs pt-1">
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
               <span className="text-slate-400 block text-[10px] uppercase">Recovery Rate</span>
-              <strong className="text-teal-300 text-xl font-black block mt-0.5">{stationAnalytics.recoveryRate}</strong>
+              <strong className="text-teal-300 text-xl font-black block mt-0.5">{safeAnalytics.recoveryRate || "0%"}</strong>
             </div>
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
               <span className="text-slate-400 block text-[10px] uppercase">Avg Response Time</span>
-              <strong className="text-blue-400 text-xl font-black block mt-0.5">{stationAnalytics.avgResponseTime}</strong>
+              <strong className="text-blue-400 text-xl font-black block mt-0.5">{safeAnalytics.avgResponseTime || "--"}</strong>
             </div>
           </div>
         </Card>

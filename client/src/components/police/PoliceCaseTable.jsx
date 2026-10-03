@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 
 export const PoliceCaseTable = ({ cases }) => {
   const navigate = useNavigate();
+  const safeCases = Array.isArray(cases) ? cases : [];
 
   return (
     <div className="w-full overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
@@ -24,7 +25,13 @@ export const PoliceCaseTable = ({ cases }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800/80">
-          {cases.map((c) => (
+          {safeCases.length === 0 ? (
+            <tr>
+              <td colSpan="8" className="py-10 text-center text-slate-400 font-mono text-xs">
+                No active police cases found matching current filters.
+              </td>
+            </tr>
+          ) : safeCases.map((c) => (
             <tr key={c.id} className="hover:bg-slate-800/50 transition-colors">
               <td className="py-3.5 px-4">
                 <CasePriorityBadge priority={c.priority} />

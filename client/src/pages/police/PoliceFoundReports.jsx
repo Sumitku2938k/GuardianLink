@@ -9,9 +9,12 @@ export default function PoliceFoundReports() {
   const navigate = useNavigate();
   const { foundReports, policeCases, updateCaseStatus } = usePolice();
 
+  const safeFoundReports = Array.isArray(foundReports) ? foundReports : [];
+  const safePoliceCases = Array.isArray(policeCases) ? policeCases : [];
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
-  const [linkedCaseId, setLinkedCaseId] = useState(policeCases[0]?.id || "");
+  const [linkedCaseId, setLinkedCaseId] = useState(safePoliceCases[0]?.id || "");
 
   const handleLinkReport = (report) => {
     updateCaseStatus(linkedCaseId, "Investigating");
@@ -33,7 +36,11 @@ export default function PoliceFoundReports() {
 
       {/* Reports Queue */}
       <div className="space-y-4">
-        {foundReports.map((report) => (
+        {safeFoundReports.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center text-slate-400 font-mono text-xs">
+            No citizen found child reports currently in queue.
+          </div>
+        ) : safeFoundReports.map((report) => (
           <div key={report.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
             <div className="flex justify-between items-center pb-2 border-b border-slate-800">
               <div className="flex items-center gap-2">
