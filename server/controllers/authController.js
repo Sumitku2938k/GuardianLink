@@ -1,5 +1,6 @@
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const { sendTokenResponse, clearTokenCookie } = require("../utils/cookies");
+const { sendTokenResponse, clearTokenCookie, COOKIE_NAME } = require("../utils/cookies");
 const { delSession } = require("../config/redis");
 
 // @desc    Register a new user
@@ -170,13 +171,37 @@ exports.getMe = async (req, res, next) => {
 
 // @desc    Logout user & clear session cookie
 // @route   POST /api/auth/logout
-// @access  Private (Authenticated)
+// @access  Public / Private
 exports.logout = async (req, res, next) => {
   try {
-    if (req.user) {
-      await delSession(`session:${req.user._id.toString()}`);
+    let userId = req.user ? req.user._id.toString() : null;
+
+    if (!userId) {
+      let token = null;
+      if (req.cookies && req.cookies[COOKIE_NAME]) {
+        token = req.cookies[COOKIE_NAME];
+      } else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+        token = req.headers.authorization.split(" ")[1];
+      }
+
+      if (token) {
+        try {
+          const decoded = jwt.decode(token);
+          if (decoded && decoded.id) {
+            userId = decoded.id;
+          }
+        } catch (e) {
+          // Ignore decode error
+        }
+      }
     }
+
+    if (userId) {
+      await delSession(`session:${userId}`);
+    }
+
     clearTokenCookie(res);
+
     return res.status(200).json({
       success: true,
       message: "Logged out successfully."

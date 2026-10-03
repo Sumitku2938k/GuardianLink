@@ -18,10 +18,12 @@ import {
   X
 } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
+import { useAuth } from "@/context/AuthContext";
 
-export const AdminSidebar = ({ isOpen, onCloseMobile }) => {
+export const AdminSidebar = ({ isOpen, onCloseMobile, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { platformStats, users, adminCases, adminReports } = useAdmin();
 
   const navItems = [
@@ -89,8 +91,13 @@ export const AdminSidebar = ({ isOpen, onCloseMobile }) => {
     }
   ];
 
-  const handleLogout = () => {
-    navigate("/login");
+  const handleLogout = async () => {
+    if (onLogout) {
+      await onLogout();
+    } else {
+      await logout();
+      navigate("/login");
+    }
   };
 
   return (

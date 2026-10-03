@@ -33,6 +33,7 @@ const sendTokenResponse = async (user, statusCode, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
   };
 
@@ -46,11 +47,17 @@ const sendTokenResponse = async (user, statusCode, res) => {
 };
 
 const clearTokenCookie = (res) => {
-  res.cookie(COOKIE_NAME, "", {
+  const clearOptions = {
     httpOnly: true,
-    expires: new Date(0),
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax"
+    sameSite: "lax",
+    path: "/"
+  };
+
+  res.clearCookie(COOKIE_NAME, clearOptions);
+  res.cookie(COOKIE_NAME, "", {
+    ...clearOptions,
+    expires: new Date(0)
   });
 };
 

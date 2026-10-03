@@ -50,14 +50,13 @@ const authenticate = async (req, res, next) => {
     // Check Redis/Memory Session cache
     const session = await getSession(`session:${decoded.id}`);
     
-    // If session missing in cache but JWT is valid & user exists in MongoDB, re-populate cache
+    // If session is deleted or expired in Redis, user is logged out / unauthorized
     if (!session) {
-      await setSession(`session:${user._id.toString()}`, {
-        userId: user._id.toString(),
-        role: user.role,
-        token: token,
-        lastActive: new Date().toISOString()
-      }, 7 * 24 * 60 * 60);
+      return res.status(401).json({
+        success: false,
+        message: "Session expired or logged out. Please log in again.",
+        code: "SESSION_EXPIRED"
+      });
     }
 
     req.user = user;

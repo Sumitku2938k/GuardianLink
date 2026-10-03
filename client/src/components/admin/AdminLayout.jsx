@@ -20,6 +20,7 @@ export const AdminLayout = () => {
       <AdminSidebar
         isOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Body */}
@@ -27,6 +28,7 @@ export const AdminLayout = () => {
         {/* Top Navbar */}
         <AdminTopNavbar
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Page Container */}

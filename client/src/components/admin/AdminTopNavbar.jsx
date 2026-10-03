@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, Menu, Shield, User, LogOut, ChevronDown, CheckCircle2, Lock } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
+import { useAuth } from "@/context/AuthContext";
 import { AdminSearchModal } from "./AdminSearchModal";
 
-export const AdminTopNavbar = ({ onOpenMobileSidebar }) => {
+export const AdminTopNavbar = ({ onOpenMobileSidebar, onLogout }) => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const { currentAdmin } = useAdmin();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -102,9 +104,14 @@ export const AdminTopNavbar = ({ onOpenMobileSidebar }) => {
                 <div className="border-t border-gray-150 my-1" />
 
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setIsProfileOpen(false);
-                    navigate("/login");
+                    if (onLogout) {
+                      await onLogout();
+                    } else {
+                      await logout();
+                      navigate("/login");
+                    }
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2 font-semibold"
                 >
