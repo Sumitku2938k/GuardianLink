@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Search, Filter, ShieldCheck, CheckCircle2, Eye, Building } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/Button";
 
 export default function AdminOrgsList() {
   const navigate = useNavigate();
-  const { organizations, handleVerifyOrganization } = useAdmin();
+  const { organizations, handleVerifyOrganization, fetchUsers } = useAdmin();
+
+  useEffect(() => {
+    if (fetchUsers) {
+      fetchUsers();
+    }
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -191,7 +197,7 @@ export default function AdminOrgsList() {
           isOpen={!!selectedOrgForVerification}
           onClose={() => setSelectedOrgForVerification(null)}
           org={selectedOrgForVerification}
-          onConfirmDecision={(oId, dec) => handleVerifyOrganization(oId, dec)}
+          onConfirmDecision={(oId, dec, nts) => handleVerifyOrganization(oId, dec, nts)}
         />
       )}
     </div>

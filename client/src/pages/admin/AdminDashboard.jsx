@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -30,8 +30,15 @@ export default function AdminDashboard() {
     activityFeed,
     adminCases,
     users,
-    aiMetrics
+    aiMetrics,
+    fetchUsers
   } = useAdmin();
+
+  useEffect(() => {
+    if (fetchUsers) {
+      fetchUsers();
+    }
+  }, []);
 
   return (
     <div className="space-y-6">

@@ -9,13 +9,18 @@ export const OrgVerificationModal = ({ isOpen, onClose, org, onConfirmDecision }
 
   if (!org) return null;
 
-  const handleDecision = (decision) => {
+  const handleDecision = async (decision) => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      onConfirmDecision(org.id, decision);
-      setIsSubmitting(false);
+    try {
+      if (onConfirmDecision) {
+        await onConfirmDecision(org.id, decision, notes);
+      }
       onClose();
-    }, 800);
+    } catch (err) {
+      alert("Verification update failed: " + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

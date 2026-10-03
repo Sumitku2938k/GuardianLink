@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -35,6 +35,12 @@ export default function AdminUsersList() {
     handleSuspendUser,
     handleActivateUser
   } = useAdmin();
+
+  useEffect(() => {
+    if (fetchUsers) {
+      fetchUsers();
+    }
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");

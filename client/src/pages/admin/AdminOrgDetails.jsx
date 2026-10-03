@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Building2, ArrowLeft, ShieldCheck, Phone, Mail, MapPin, Users, Heart, FolderOpen } from "lucide-react";
+import { Building2, ArrowLeft, ShieldCheck, Phone, Mail, MapPin, Users, Heart, FolderOpen, RefreshCw } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { OrgVerificationModal } from "@/components/admin/OrgVerificationModal";
 import { Card } from "@/components/ui/Card";
@@ -10,15 +10,32 @@ export default function AdminOrgDetails() {
   const { organizationId } = useParams();
   const navigate = useNavigate();
 
-  const { organizations, handleVerifyOrganization } = useAdmin();
-  const org = organizations.find((o) => o.id === organizationId) || organizations[0];
+  const { organizations, handleVerifyOrganization, fetchUsers, isLoadingUsers } = useAdmin();
+
+  useEffect(() => {
+    if (fetchUsers) {
+      fetchUsers();
+    }
+  }, []);
+
+  const org = organizations.find((o) => o.id === organizationId);
 
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+
+  if (isLoadingUsers && !org) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+        <span className="text-xs font-mono font-bold text-slate-500">Loading organization details...</span>
+      </div>
+    );
+  }
 
   if (!org) {
     return (
       <div className="text-center py-12">
         <h3 className="text-xl font-bold text-slate-800">Organization Record Not Found</h3>
+        <p className="text-xs text-slate-500 mt-1">The organization ID {organizationId} could not be located.</p>
         <Button onClick={() => navigate("/admin/organizations")} className="mt-4">
           Return to Organizations List
         </Button>
@@ -101,7 +118,7 @@ export default function AdminOrgDetails() {
         isOpen={isVerificationModalOpen}
         onClose={() => setIsVerificationModalOpen(false)}
         org={org}
-        onConfirmDecision={(oId, dec) => handleVerifyOrganization(oId, dec)}
+        onConfirmDecision={(oId, dec, nts) => handleVerifyOrganization(oId, dec, nts)}
       />
     </div>
   );

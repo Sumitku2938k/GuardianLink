@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Users,
@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   XCircle,
   Building2,
-  MapPin
+  MapPin,
+  RefreshCw
 } from "lucide-react";
 import { useAdmin } from "@/context/AdminContext";
 import { UserRoleModal } from "@/components/admin/UserRoleModal";
@@ -26,6 +27,8 @@ export default function AdminUserDetails() {
 
   const {
     users,
+    isLoadingUsers,
+    fetchUsers,
     handleApproveUser,
     handleRejectUser,
     handleUpdateUserRole,
@@ -33,17 +36,33 @@ export default function AdminUserDetails() {
     handleActivateUser
   } = useAdmin();
 
-  const user = users.find((u) => u.id === userId) || users[0];
+  useEffect(() => {
+    if (fetchUsers) {
+      fetchUsers();
+    }
+  }, []);
+
+  const user = users.find((u) => u.id === userId);
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isSuspendModalOpen, setIsSuspendModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
 
+  if (isLoadingUsers && !user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
+        <span className="text-xs font-mono font-bold text-slate-500">Loading user profile...</span>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="text-center py-12">
         <h3 className="text-xl font-bold text-slate-800">User Record Not Found</h3>
+        <p className="text-xs text-slate-500 mt-1">The requested user ID {userId} could not be located.</p>
         <Button onClick={() => navigate("/admin/users")} className="mt-4">
           Return to Users List
         </Button>

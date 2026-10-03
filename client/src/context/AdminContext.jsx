@@ -20,24 +20,154 @@ export const AdminProvider = ({ children }) => {
     lastLogin: "Active Now"
   });
 
-  // Sync currentAdmin with logged-in admin user and fetch live users
-  useEffect(() => {
-    if (authUser && authUser.role === "admin") {
-      setCurrentAdmin({
-        id: authUser.id || "ADM-001",
-        name: authUser.name || "GuardianLink Administrator",
-        email: authUser.email,
-        role: "System Administrator",
-        avatar:
-          authUser.profilePhoto ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name || "Admin")}&background=4f46e5&color=fff`,
-        phone: authUser.phone || "+91 98765 00001",
-        securityStatus: "2FA Enabled • System Clearance",
-        lastLogin: "Active Now"
-      });
-      fetchUsers();
+  // Default baseline organizations
+  const defaultOrganizations = [
+    {
+      id: "ORG-PL-01",
+      name: "Delhi Central Metro Police Station",
+      type: "Police",
+      location: "Sector 12, New Delhi",
+      verificationStatus: "Verified",
+      status: "Active",
+      membersCount: 42,
+      registeredDate: "10 Aug 2024",
+      activeCases: 8,
+      contactPerson: "Insp. R. S. Rathore",
+      phone: "+91 11 2345 6789",
+      email: "metro.central@delhipolice.gov.in"
+    },
+    {
+      id: "ORG-NGO-01",
+      name: "Helping Hands Child Shelter Kiosk",
+      type: "NGO",
+      location: "Sector 12, New Delhi",
+      verificationStatus: "Verified",
+      status: "Active",
+      membersCount: 18,
+      registeredDate: "15 Jan 2025",
+      shelterCapacity: 20,
+      currentOccupancy: 8,
+      contactPerson: "Pooja Deshmukh",
+      phone: "+91 98333 44556",
+      email: "shelter@helpinghandsngo.org"
+    },
+    {
+      id: "ORG-NGO-02",
+      name: "Bachpan Safe Haven Foundation",
+      type: "NGO",
+      location: "Sector 18, Noida",
+      verificationStatus: "Pending",
+      status: "Active",
+      membersCount: 12,
+      registeredDate: "14 Feb 2026",
+      shelterCapacity: 35,
+      currentOccupancy: 14,
+      contactPerson: "Suresh Menon",
+      phone: "+91 98777 88990",
+      email: "info@bachpansafe.org"
+    },
+    {
+      id: "ORG-PL-02",
+      name: "Connaught Place Police Post",
+      type: "Police",
+      location: "CP Central, New Delhi",
+      verificationStatus: "Verified",
+      status: "Active",
+      membersCount: 55,
+      registeredDate: "01 Jun 2024",
+      activeCases: 12,
+      contactPerson: "ACP K. L. Sharma",
+      phone: "+91 11 2334 1122",
+      email: "cp.station@delhipolice.gov.in"
     }
-  }, [authUser]);
+  ];
+
+  // Users Dataset
+  const [users, setUsers] = useState([]);
+
+  // Organizations Dataset (Police Posts & NGOs)
+  const [organizations, setOrganizations] = useState(defaultOrganizations);
+
+  // Platform Overall Overview Stats
+  const [platformStats, setPlatformStats] = useState({
+    totalUsers: 0,
+    registeredChildren: 8642,
+    activeMissingCases: 24,
+    activeFoundReports: 18,
+    recoveredChildren: 5284,
+    verifiedOrganizations: 2,
+    pendingVerifications: 0,
+    systemAlertsCount: 3,
+    lastUpdate: "Just now"
+  });
+
+  // Base Critical Administrative Alerts
+  const baseAlerts = [
+    {
+      id: "ALT-902",
+      severity: "Critical",
+      title: "High Priority Missing Case Reported",
+      time: "25 mins ago",
+      module: "Cases",
+      action: "Inspect Case",
+      description: "Case #MC-2026-9901 (Ananya Sharma, 6 yrs) assigned to Connaught Place Station."
+    },
+    {
+      id: "ALT-903",
+      severity: "Warning",
+      title: "AI Match Verification Queue Backlog",
+      time: "1 hr ago",
+      module: "AI Monitoring",
+      action: "View Queue",
+      description: "4 potential facial matches awaiting human verification by police escorts."
+    }
+  ];
+
+  const [criticalAlerts, setCriticalAlerts] = useState(baseAlerts);
+
+  // Real-time Platform Activity Feed
+  const [activityFeed, setActivityFeed] = useState([
+    {
+      id: "ACT-101",
+      actor: "Rajesh Sharma",
+      role: "Parent",
+      action: "Registered child Aadhav (Ref #CH-8802)",
+      time: "5 mins ago",
+      status: "Success"
+    },
+    {
+      id: "ACT-102",
+      actor: "Anjali Gupta",
+      role: "Citizen",
+      action: "Submitted Found Child Report #FR-2026-0044",
+      time: "12 mins ago",
+      status: "Review Needed"
+    },
+    {
+      id: "ACT-103",
+      actor: "Insp. R. S. Rathore",
+      role: "Police",
+      action: "Updated Case #MC-2026-8821 investigation log",
+      time: "30 mins ago",
+      status: "In Progress"
+    },
+    {
+      id: "ACT-104",
+      actor: "Helping Hands Shelter",
+      role: "NGO",
+      action: "Completed safe intake #IN-2026-0412",
+      time: "45 mins ago",
+      status: "Sheltered"
+    },
+    {
+      id: "ACT-105",
+      actor: "GuardianLink AI Engine",
+      role: "System AI",
+      action: "Generated 94.2% facial similarity candidate for Case #MC-8821",
+      time: "1 hr ago",
+      status: "Match Pending"
+    }
+  ]);
 
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
@@ -99,10 +229,61 @@ export const AdminProvider = ({ children }) => {
 
         setUsers(mappedUsers);
 
-        const pendingCount = mappedUsers.filter((u) => u.verificationStatus === "Pending").length;
+        // Derive live organizations for Police and NGO accounts from MongoDB users
+        const liveOrgs = mappedUsers
+          .filter((u) => u.rawRole === "police" || u.rawRole === "ngo")
+          .map((u) => {
+            const isPolice = u.rawRole === "police";
+            const defaultOrgName = isPolice ? `${u.name}'s Police Post` : `${u.name}'s NGO Shelter`;
+            const orgName = (u.organization && u.organization.trim()) || defaultOrgName;
+            const locParts = [u.city, u.state].filter(Boolean);
+            const location = locParts.length > 0 ? locParts.join(", ") : "New Delhi, Delhi";
+
+            return {
+              id: u.id,
+              userId: u.id,
+              name: orgName,
+              type: isPolice ? "Police" : "NGO",
+              location,
+              verificationStatus: u.verificationStatus,
+              status: u.accountStatus === "Suspended" ? "Suspended" : "Active",
+              membersCount: isPolice ? 28 : 14,
+              registeredDate: u.registeredDate,
+              shelterCapacity: isPolice ? undefined : 25,
+              currentOccupancy: isPolice ? undefined : 0,
+              activeCases: isPolice ? 0 : undefined,
+              contactPerson: u.name,
+              phone: u.phone,
+              email: u.email
+            };
+          });
+
+        const liveEmails = new Set(liveOrgs.map((o) => (o.email || "").toLowerCase()));
+        const liveNames = new Set(liveOrgs.map((o) => (o.name || "").toLowerCase()));
+        const preservedDefaults = defaultOrganizations.filter(
+          (d) => !liveEmails.has((d.email || "").toLowerCase()) && !liveNames.has((d.name || "").toLowerCase())
+        );
+
+        setOrganizations([...liveOrgs, ...preservedDefaults]);
+
+        // Dynamic alerts for pending verifications
+        const pendingUsers = mappedUsers.filter((u) => u.verificationStatus === "Pending");
+        const pendingCount = pendingUsers.length;
         const verifiedOrgs = mappedUsers.filter(
           (u) => (u.rawRole === "police" || u.rawRole === "ngo") && u.verificationStatus === "Verified"
         ).length;
+
+        const dynamicVerifAlerts = pendingUsers.map((u) => ({
+          id: `ALT-PENDING-${u.id}`,
+          severity: "High",
+          title: `Pending ${u.role} Verification Request`,
+          time: u.registeredDate || "Recent",
+          module: "Organizations",
+          action: "Review Credentials",
+          description: `${u.name} submitted registration for "${u.organization || u.role}" in ${[u.city, u.state].filter(Boolean).join(", ") || "India"}.`
+        }));
+
+        setCriticalAlerts([...dynamicVerifAlerts, ...baseAlerts]);
 
         setPlatformStats((prev) => ({
           ...prev,
@@ -119,233 +300,24 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  // Platform Overall Overview Stats
-  const [platformStats, setPlatformStats] = useState({
-    totalUsers: 12482,
-    registeredChildren: 8642,
-    activeMissingCases: 24,
-    activeFoundReports: 18,
-    recoveredChildren: 5284,
-    verifiedOrganizations: 126,
-    pendingVerifications: 14,
-    systemAlertsCount: 3,
-    lastUpdate: "Just now"
-  });
-
-  // Critical Administrative Alerts
-  const [criticalAlerts, setCriticalAlerts] = useState([
-    {
-      id: "ALT-901",
-      severity: "High",
-      title: "Pending NGO Verification Request",
-      time: "10 mins ago",
-      module: "Organizations",
-      action: "Review Credentials",
-      description: "Bachpan Safe Shelter Kiosk submitted new licensing documents."
-    },
-    {
-      id: "ALT-902",
-      severity: "Critical",
-      title: "High Priority Missing Case Reported",
-      time: "25 mins ago",
-      module: "Cases",
-      action: "Inspect Case",
-      description: "Case #MC-2026-9901 (Ananya Sharma, 6 yrs) assigned to Connaught Place Station."
-    },
-    {
-      id: "ALT-903",
-      severity: "Warning",
-      title: "AI Match Verification Queue Backlog",
-      time: "1 hr ago",
-      module: "AI Monitoring",
-      action: "View Queue",
-      description: "4 potential facial matches awaiting human verification by police escorts."
+  // Sync currentAdmin with logged-in admin user and fetch live users
+  useEffect(() => {
+    if (authUser && authUser.role === "admin") {
+      setCurrentAdmin({
+        id: authUser.id || "ADM-001",
+        name: authUser.name || "GuardianLink Administrator",
+        email: authUser.email,
+        role: "System Administrator",
+        avatar:
+          authUser.profilePhoto ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(authUser.name || "Admin")}&background=4f46e5&color=fff`,
+        phone: authUser.phone || "+91 98765 00001",
+        securityStatus: "2FA Enabled • System Clearance",
+        lastLogin: "Active Now"
+      });
+      fetchUsers();
     }
-  ]);
-
-  // Real-time Platform Activity Feed
-  const [activityFeed, setActivityFeed] = useState([
-    {
-      id: "ACT-101",
-      actor: "Rajesh Sharma",
-      role: "Parent",
-      action: "Registered child Aadhav (Ref #CH-8802)",
-      time: "5 mins ago",
-      status: "Success"
-    },
-    {
-      id: "ACT-102",
-      actor: "Anjali Gupta",
-      role: "Citizen",
-      action: "Submitted Found Child Report #FR-2026-0044",
-      time: "12 mins ago",
-      status: "Review Needed"
-    },
-    {
-      id: "ACT-103",
-      actor: "Insp. R. S. Rathore",
-      role: "Police",
-      action: "Updated Case #MC-2026-8821 investigation log",
-      time: "30 mins ago",
-      status: "In Progress"
-    },
-    {
-      id: "ACT-104",
-      actor: "Helping Hands Shelter",
-      role: "NGO",
-      action: "Completed safe intake #IN-2026-0412",
-      time: "45 mins ago",
-      status: "Sheltered"
-    },
-    {
-      id: "ACT-105",
-      actor: "GuardianLink AI Engine",
-      role: "System AI",
-      action: "Generated 94.2% facial similarity candidate for Case #MC-8821",
-      time: "1 hr ago",
-      status: "Match Pending"
-    }
-  ]);
-
-  // Users Dataset
-  const [users, setUsers] = useState([
-    {
-      id: "USR-1001",
-      name: "Sunita Sharma",
-      email: "sunita.sharma@example.com",
-      phone: "+91 98765 43210",
-      role: "Parent",
-      verificationStatus: "Verified",
-      accountStatus: "Active",
-      registeredDate: "12 Jan 2026",
-      lastActive: "10 mins ago",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150"
-    },
-    {
-      id: "USR-1002",
-      name: "Amit Verma",
-      email: "amit.verma@example.com",
-      phone: "+91 98111 22334",
-      role: "Citizen",
-      verificationStatus: "Verified",
-      accountStatus: "Active",
-      registeredDate: "18 Feb 2026",
-      lastActive: "1 hr ago",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
-    },
-    {
-      id: "USR-1003",
-      name: "Insp. R. S. Rathore",
-      email: "rathore.rs@delhipolice.gov.in",
-      phone: "+91 98222 33445",
-      role: "Police",
-      verificationStatus: "Verified",
-      accountStatus: "Active",
-      registeredDate: "05 Nov 2025",
-      lastActive: "Just now",
-      organization: "Delhi Central Metro Police",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150"
-    },
-    {
-      id: "USR-1004",
-      name: "Pooja Deshmukh",
-      email: "pooja@helpinghandsngo.org",
-      phone: "+91 98333 44556",
-      role: "NGO",
-      verificationStatus: "Verified",
-      accountStatus: "Active",
-      registeredDate: "01 Dec 2025",
-      lastActive: "5 mins ago",
-      organization: "Helping Hands Shelter",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150"
-    },
-    {
-      id: "USR-1005",
-      name: "Rohan Kapoor",
-      email: "rohan.k@example.com",
-      phone: "+91 98444 55667",
-      role: "Citizen",
-      verificationStatus: "Pending",
-      accountStatus: "Active",
-      registeredDate: "Yesterday",
-      lastActive: "3 hrs ago",
-      avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150"
-    },
-    {
-      id: "USR-1006",
-      name: "Vikas Malhotra",
-      email: "vikas.m@suspicious.com",
-      phone: "+91 98555 66778",
-      role: "Citizen",
-      verificationStatus: "Rejected",
-      accountStatus: "Suspended",
-      registeredDate: "10 Feb 2026",
-      lastActive: "2 days ago",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150"
-    }
-  ]);
-
-  // Organizations Dataset (Police Posts & NGOs)
-  const [organizations, setOrganizations] = useState([
-    {
-      id: "ORG-PL-01",
-      name: "Delhi Central Metro Police Station",
-      type: "Police",
-      location: "Sector 12, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 42,
-      registeredDate: "10 Aug 2024",
-      activeCases: 8,
-      contactPerson: "Insp. R. S. Rathore",
-      phone: "+91 11 2345 6789",
-      email: "metro.central@delhipolice.gov.in"
-    },
-    {
-      id: "ORG-NGO-01",
-      name: "Helping Hands Child Shelter Kiosk",
-      type: "NGO",
-      location: "Sector 12, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 18,
-      registeredDate: "15 Jan 2025",
-      shelterCapacity: 20,
-      currentOccupancy: 8,
-      contactPerson: "Pooja Deshmukh",
-      phone: "+91 98333 44556",
-      email: "shelter@helpinghandsngo.org"
-    },
-    {
-      id: "ORG-NGO-02",
-      name: "Bachpan Safe Haven Foundation",
-      type: "NGO",
-      location: "Sector 18, Noida",
-      verificationStatus: "Pending",
-      status: "Active",
-      membersCount: 12,
-      registeredDate: "14 Feb 2026",
-      shelterCapacity: 35,
-      currentOccupancy: 14,
-      contactPerson: "Suresh Menon",
-      phone: "+91 98777 88990",
-      email: "info@bachpansafe.org"
-    },
-    {
-      id: "ORG-PL-02",
-      name: "Connaught Place Police Post",
-      type: "Police",
-      location: "CP Central, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 55,
-      registeredDate: "01 Jun 2024",
-      activeCases: 12,
-      contactPerson: "ACP K. L. Sharma",
-      phone: "+91 11 2334 1122",
-      email: "cp.station@delhipolice.gov.in"
-    }
-  ]);
+  }, [authUser]);
 
   // Platform Cases Oversight Dataset
   const [adminCases, setAdminCases] = useState([
@@ -639,21 +611,43 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  const handleVerifyOrganization = (orgId, decision) => {
-    setOrganizations((prev) =>
-      prev.map((o) => (o.id === orgId ? { ...o, verificationStatus: decision } : o))
-    );
-    const newAudit = {
-      id: `AUD-${Date.now().toString().slice(-4)}`,
-      timestamp: "Just now",
-      actor: currentAdmin.name,
-      role: "Admin",
-      action: `Organization verification decision: ${decision}`,
-      entity: "Organization",
-      entityId: orgId,
-      result: decision
-    };
-    setAuditLogs((prev) => [newAudit, ...prev]);
+  const handleVerifyOrganization = async (orgId, decision, rejectionReason = "") => {
+    try {
+      // Find matching user by id or org email
+      const org = organizations.find((o) => o.id === orgId);
+      const matchedUser = users.find(
+        (u) =>
+          u.id === orgId ||
+          (org && u.email && u.email.toLowerCase() === (org.email || "").toLowerCase()) ||
+          (org && u.organization && u.organization.toLowerCase() === (org.name || "").toLowerCase())
+      );
+      const targetUserId = matchedUser ? matchedUser.id : orgId;
+
+      if (decision === "Verified") {
+        await handleApproveUser(targetUserId);
+      } else if (decision === "Rejected") {
+        await handleRejectUser(targetUserId, rejectionReason || "Organization credentials rejected.");
+      }
+
+      setOrganizations((prev) =>
+        prev.map((o) => (o.id === orgId ? { ...o, verificationStatus: decision } : o))
+      );
+
+      const newAudit = {
+        id: `AUD-${Date.now().toString().slice(-4)}`,
+        timestamp: "Just now",
+        actor: currentAdmin.name,
+        role: "Admin",
+        action: `Organization verification decision: ${decision}`,
+        entity: "Organization",
+        entityId: orgId,
+        result: decision
+      };
+      setAuditLogs((prev) => [newAudit, ...prev]);
+    } catch (err) {
+      console.error("Failed to verify organization:", err);
+      throw err;
+    }
   };
 
   const handleRetryNotification = (ntfId) => {
