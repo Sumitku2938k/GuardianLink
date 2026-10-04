@@ -30,7 +30,8 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["parent", "citizen", "police", "ngo", "admin"],
-      default: "parent"
+      default: "parent",
+      index: true
     },
     profilePhoto: {
       type: String,
@@ -47,7 +48,8 @@ const userSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["active", "pending", "approved", "rejected", "suspended", "deactivated"],
-      default: "active"
+      default: "active",
+      index: true
     },
     organization: {
       type: String,
@@ -75,9 +77,20 @@ const userSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
+
+// Virtual for fullName to maintain bidirectional compatibility with name
+userSchema.virtual("fullName")
+  .get(function () {
+    return this.name;
+  })
+  .set(function (val) {
+    this.name = val;
+  });
 
 // Hash password before saving
 userSchema.pre("save", async function () {
