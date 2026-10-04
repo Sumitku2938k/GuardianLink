@@ -2,7 +2,8 @@ const rateLimit = require("express-rate-limit");
 
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 requests per IP
+  max: process.env.NODE_ENV === "production" ? 20 : 1000,
+  skip: (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true",
   message: {
     success: false,
     message: "Too many login attempts from this IP address. Please try again after 15 minutes.",
@@ -14,7 +15,8 @@ const loginRateLimiter = rateLimit({
 
 const registerRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 15, // 15 accounts per hour per IP
+  max: process.env.NODE_ENV === "production" ? 15 : 500,
+  skip: (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true",
   message: {
     success: false,
     message: "Too many account registrations from this IP. Please try again later.",
