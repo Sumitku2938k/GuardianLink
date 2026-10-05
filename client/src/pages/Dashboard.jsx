@@ -203,14 +203,35 @@ export default function Dashboard({ defaultTab }) {
 
               {/* Children Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {childrenList.slice(0, 2).map((child) => (
-                  <ChildCard
-                    key={child.id}
-                    child={child}
-                    onViewProfile={openViewProfile}
-                    onReportMissing={openReportEmergency}
-                  />
-                ))}
+                {childrenList.length === 0 ? (
+                  <div className="sm:col-span-2 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-gray-200 dark:border-slate-800">
+                    <div className="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">No child profiles registered yet</h4>
+                    <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+                      Register your child's profile to enable AI safety monitoring and emergency response.
+                    </p>
+                    <Button
+                      onClick={() => navigate("/parent/add-child")}
+                      variant="primary"
+                      size="sm"
+                      className="mt-4"
+                      leftIcon={Plus}
+                    >
+                      Register Child Profile
+                    </Button>
+                  </div>
+                ) : (
+                  childrenList.slice(0, 2).map((child) => (
+                    <ChildCard
+                      key={child.id}
+                      child={child}
+                      onViewProfile={openViewProfile}
+                      onReportMissing={openReportEmergency}
+                    />
+                  ))
+                )}
               </div>
 
               {/* Quick Actions Panel */}

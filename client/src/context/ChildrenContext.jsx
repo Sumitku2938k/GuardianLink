@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import api from "@/lib/axios";
+import { useAuth } from "@/context/AuthContext";
 
 const ChildrenContext = createContext();
 
@@ -10,339 +12,179 @@ export const useChildren = () => {
   return context;
 };
 
-export const ChildrenProvider = ({ children }) => {
-  const [childrenList, setChildrenList] = useState([
-    {
-      id: "1",
-      name: "Aarav Sharma",
-      nickname: "Aaru",
-      age: 8,
-      gender: "Male",
-      dob: "2018-05-12",
-      height: "128 cm",
-      weight: "26 kg",
-      bloodGroup: "O+",
-      schoolName: "Greenwood High School, Sec-14",
-      languages: "Hindi, English",
-      status: "Safe",
-      emergencyPin: "GL-8821",
-      lastLocation: "Greenwood High School, Delhi",
-      photo: "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
-      photos: [
-        "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80"
-      ],
-      faceEnrollmentStatus: "Completed",
-      medicalNotes: "No known allergies. Routine vaccinations up to date.",
-      allergies: "None",
-      medications: "None",
-      medicalConditions: "None",
-      doctorName: "Dr. K. K. Sen",
-      doctorContact: "+91 98123 45678",
-      hasMedicalInfo: false,
-      emergencyContacts: [
-        {
-          id: "ec-1",
-          name: "Suman Sharma",
-          relationship: "Mother",
-          phone: "+91 98765 43211",
-          alternatePhone: "+91 98765 43212",
-          isPrimary: true
-        }
-      ],
-      distinctiveMarks: "Small mole on the right cheek near the eye.",
-      scars: "Faint scratch mark on the left knee from soccer.",
-      birthmarks: "None",
-      otherMarks: "None",
-      updatedAt: "Today, 10:30 AM",
-      createdAt: "2026-06-15",
-      timeline: [
-        {
-          id: "t-1",
-          title: "Profile Created",
-          desc: "Aarav's primary security profile was created by parent.",
-          time: "2026-06-15, 11:00 AM",
-          icon: "Plus"
-        },
-        {
-          id: "t-2",
-          title: "Biometric Face Indexing Completed",
-          desc: "AI processed 5 front-facing and profile images.",
-          time: "2026-06-15, 11:20 AM",
-          icon: "Shield"
-        },
-        {
-          id: "t-3",
-          title: "Guardian Contacts Verified",
-          desc: "Primary emergency contact verified via OTP.",
-          time: "2026-06-15, 11:25 AM",
-          icon: "UserCheck"
-        }
-      ]
-    },
-    {
-      id: "2",
-      name: "Ananya Sharma",
-      nickname: "Anu",
-      age: 5,
-      gender: "Female",
-      dob: "2021-09-04",
-      height: "105 cm",
-      weight: "16 kg",
-      bloodGroup: "A+",
-      schoolName: "Modern Little Angels Daycare",
-      languages: "Hindi, English",
-      status: "Safe",
-      emergencyPin: "GL-9482",
-      lastLocation: "Modern Little Angels Daycare, Delhi",
-      photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
-      photos: [
-        "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80"
-      ],
-      faceEnrollmentStatus: "Completed",
-      medicalNotes: "Has mild seasonal asthma. Inhaler kept in school bag.",
-      allergies: "Dust and Pollen",
-      medications: "Albuterol Inhaler (as needed)",
-      medicalConditions: "Mild Asthma",
-      doctorName: "Dr. Anjali Mehta",
-      doctorContact: "+91 98111 22233",
-      hasMedicalInfo: true,
-      emergencyContacts: [
-        {
-          id: "ec-2",
-          name: "Suman Sharma",
-          relationship: "Mother",
-          phone: "+91 98765 43211",
-          alternatePhone: "+91 98765 43212",
-          isPrimary: true
-        }
-      ],
-      distinctiveMarks: "None",
-      scars: "None",
-      birthmarks: "Light brown birthmark on the back of the neck.",
-      otherMarks: "None",
-      updatedAt: "Yesterday, 04:15 PM",
-      createdAt: "2026-06-20",
-      timeline: [
-        {
-          id: "t-1",
-          title: "Profile Created",
-          desc: "Ananya's safety profile registered in database.",
-          time: "2026-06-20, 09:00 AM",
-          icon: "Plus"
-        },
-        {
-          id: "t-2",
-          title: "Medical Info Updated",
-          desc: "Asthma details and inhaler usage directions added.",
-          time: "2026-06-20, 09:15 AM",
-          icon: "Heart"
-        }
-      ]
-    },
-    {
-      id: "3",
-      name: "Kabir Mehta",
-      nickname: "Kabbu",
-      age: 10,
-      gender: "Male",
-      dob: "2016-02-18",
-      height: "140 cm",
-      weight: "34 kg",
-      bloodGroup: "B+",
-      schoolName: "St. Xavier's Academy",
-      languages: "English, Gujarati",
-      status: "Recovered",
-      emergencyPin: "GL-1209",
-      lastLocation: "St. Xavier's Campus, Ahmedabad",
-      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      photos: [
-        "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80"
-      ],
-      faceEnrollmentStatus: "Completed",
-      medicalNotes: "No chronic conditions.",
-      allergies: "Peanuts",
-      medications: "None",
-      medicalConditions: "None",
-      doctorName: "Dr. R. P. Mehta",
-      doctorContact: "+91 99999 88888",
-      hasMedicalInfo: true,
-      emergencyContacts: [
-        {
-          id: "ec-3",
-          name: "Rajesh Mehta",
-          relationship: "Father",
-          phone: "+91 99887 76655",
-          alternatePhone: "",
-          isPrimary: true
-        }
-      ],
-      distinctiveMarks: "Scar on right forearm.",
-      scars: "Scar on right forearm from bicycle accident.",
-      birthmarks: "None",
-      otherMarks: "None",
-      updatedAt: "3 days ago",
-      createdAt: "2026-05-10",
-      timeline: [
-        {
-          id: "t-1",
-          title: "Profile Created",
-          desc: "Kabir's safety profile registered.",
-          time: "2026-05-10, 10:00 AM",
-          icon: "Plus"
-        },
-        {
-          id: "t-2",
-          title: "Reported Missing",
-          desc: "Emergency Red Alert broadcasted after geofence breach.",
-          time: "2026-07-04, 02:30 PM",
-          icon: "AlertTriangle"
-        },
-        {
-          id: "t-3",
-          title: "AI Face Match Spotted",
-          desc: "AI spotted Kabir near Metro Station Camera 4B.",
-          time: "2026-07-04, 03:10 PM",
-          icon: "Shield"
-        },
-        {
-          id: "t-4",
-          title: "Recovered Safely",
-          desc: "Located by police patrol and successfully returned to verified guardians.",
-          time: "2026-07-04, 04:00 PM",
-          icon: "CheckCircle2"
-        }
-      ]
-    },
-    {
-      id: "4",
-      name: "Rhea Kapoor",
-      nickname: "Rhe",
-      age: 7,
-      gender: "Female",
-      dob: "2019-11-30",
-      height: "120 cm",
-      weight: "22 kg",
-      bloodGroup: "AB-",
-      schoolName: "DPS Public School",
-      languages: "English, Punjabi",
-      status: "Found",
-      emergencyPin: "GL-4431",
-      lastLocation: "Central Mall Play Zone, Delhi",
-      photo: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80",
-      photos: [
-        "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80"
-      ],
-      faceEnrollmentStatus: "Completed",
-      medicalNotes: "Allergies to dairy products.",
-      allergies: "Lactose intolerance",
-      medications: "None",
-      medicalConditions: "None",
-      doctorName: "Dr. Sonia Kapoor",
-      doctorContact: "+91 97777 66666",
-      hasMedicalInfo: true,
-      emergencyContacts: [
-        {
-          id: "ec-4",
-          name: "Amit Kapoor",
-          relationship: "Father",
-          phone: "+91 95555 44444",
-          alternatePhone: "",
-          isPrimary: true
-        }
-      ],
-      distinctiveMarks: "None",
-      scars: "None",
-      birthmarks: "Birthmark on left calf.",
-      otherMarks: "None",
-      updatedAt: "2 hours ago",
-      createdAt: "2026-07-01",
-      timeline: [
-        {
-          id: "t-1",
-          title: "Profile Created",
-          desc: "Rhea's profile registered in system.",
-          time: "2026-07-01, 04:00 PM",
-          icon: "Plus"
-        },
-        {
-          id: "t-2",
-          title: "Found Sighted",
-          desc: "Sighted by verified citizen and flagged to nearby police unit.",
-          time: "2026-08-08, 01:10 PM",
-          icon: "CheckCircle2"
-        }
-      ]
+const normalizeChildForUi = (c) => {
+  if (!c) return null;
+  const id = c.id || (c._id ? c._id.toString() : String(c));
+  const name = c.fullName || c.name || "Child";
+  const dob = c.dateOfBirth
+    ? new Date(c.dateOfBirth).toISOString().split("T")[0]
+    : c.dob || "";
+
+  let age = c.age;
+  if (age === undefined || age === null) {
+    if (dob) {
+      const birth = new Date(dob);
+      const today = new Date();
+      age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+      age = Math.max(0, age);
+    } else {
+      age = 0;
     }
-  ]);
+  }
 
-  const addChild = (child) => {
-    const newChild = {
-      ...child,
-      id: child.id || String(Date.now()),
-      status: child.status || "Safe",
-      emergencyPin: child.emergencyPin || `GL-${Math.floor(1000 + Math.random() * 9000)}`,
-      faceEnrollmentStatus: child.faceEnrollmentStatus || "Completed",
-      createdAt: new Date().toISOString().split("T")[0],
-      updatedAt: "Just Now",
-      timeline: [
-        {
-          id: `t-${Date.now()}-1`,
-          title: "Profile Created",
-          desc: `${child.name}'s safety profile successfully registered.`,
-          time: "Just Now",
-          icon: "Plus"
-        },
-        {
-          id: `t-${Date.now()}-2`,
-          title: "Biometric AI Vector Mapping Enabled",
-          desc: "AI processed front-face vector indexing.",
-          time: "Just Now",
-          icon: "Shield"
-        }
-      ]
-    };
-    setChildrenList((prev) => [newChild, ...prev]);
-    return newChild;
+  const defaultPhoto =
+    "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80";
+  const photo = c.photoUrl || c.photo || (Array.isArray(c.photos) && c.photos[0]) || defaultPhoto;
+  const photos = Array.isArray(c.photos) && c.photos.length > 0 ? c.photos : [photo];
+
+  const uiStatus =
+    c.status === "inactive"
+      ? "Inactive"
+      : c.status === "active"
+      ? "Safe"
+      : c.status || "Safe";
+
+  return {
+    ...c,
+    id,
+    _id: id,
+    name,
+    fullName: name,
+    dob,
+    dateOfBirth: c.dateOfBirth || dob,
+    age,
+    gender: c.gender ? c.gender.charAt(0).toUpperCase() + c.gender.slice(1).toLowerCase() : "Male",
+    status: uiStatus,
+    rawStatus: c.status || "active",
+    photo,
+    photos,
+    emergencyPin: c.emergencyPin || `GL-${id.slice(-4).toUpperCase()}`,
+    schoolName: c.schoolName || "N/A",
+    lastLocation: c.lastLocation || "Home / Registered Area",
+    height: c.height || "N/A",
+    weight: c.weight || "N/A",
+    bloodGroup: c.bloodGroup || "Unknown",
+    languages: c.languages || "Hindi, English",
+    distinctiveMarks: c.distinctiveMarks || "None",
+    scars: c.scars || "None",
+    birthmarks: c.birthmarks || "None",
+    otherMarks: c.otherMarks || "None",
+    hasMedicalInfo: Boolean(c.hasMedicalInfo),
+    medicalConditions: c.medicalConditions || "None",
+    allergies: c.allergies || "None",
+    medications: c.medications || "None",
+    doctorName: c.doctorName || "",
+    doctorContact: c.doctorContact || "",
+    medicalNotes: c.medicalNotes || "",
+    emergencyContacts: Array.isArray(c.emergencyContacts) ? c.emergencyContacts : [],
+    updatedAt: c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "Recently",
+    createdAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "Recently",
+    timeline: c.timeline || [
+      {
+        id: `t-${id}-1`,
+        title: "Profile Created",
+        desc: `${name}'s primary safety profile is registered with GuardianLink.`,
+        time: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "Recently",
+        icon: "Plus"
+      }
+    ]
+  };
+};
+
+export const ChildrenProvider = ({ children }) => {
+  const { user, isAuthenticated } = useAuth();
+  const [childrenList, setChildrenList] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchChildren = useCallback(async () => {
+    if (!isAuthenticated || !user || user.role !== "parent") {
+      setChildrenList([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await api.get("/api/children");
+      if (res.data && res.data.success) {
+        const rawChildren = res.data.children || [];
+        setChildrenList(rawChildren.map(normalizeChildForUi));
+      }
+    } catch (err) {
+      console.warn("Could not fetch children from backend API:", err.message);
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    fetchChildren();
+  }, [fetchChildren]);
+
+  const addChild = async (childPayload) => {
+    try {
+      const res = await api.post("/api/children", childPayload);
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) => [normalized, ...prev]);
+        return normalized;
+      }
+      throw new Error(res.data?.message || "Failed to register child");
+    } catch (err) {
+      console.error("API error in addChild:", err);
+      throw err;
+    }
   };
 
-  const updateChild = (childId, updatedFields) => {
-    setChildrenList((prev) =>
-      prev.map((c) => {
-        if (c.id === childId) {
-          const timestamp = new Date().toLocaleString();
-          return {
-            ...c,
-            ...updatedFields,
-            updatedAt: "Just Now",
-            timeline: [
-              {
-                id: `t-${Date.now()}`,
-                title: "Profile Updated",
-                desc: "Child profile details were edited by parent.",
-                time: timestamp,
-                icon: "RefreshCw"
-              },
-              ...c.timeline
-            ]
-          };
-        }
-        return c;
-      })
-    );
+  const updateChild = async (childId, updatedFields) => {
+    try {
+      const res = await api.patch(`/api/children/${childId}`, updatedFields);
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) =>
+          prev.map((c) => (c.id === childId || c._id === childId ? normalized : c))
+        );
+        return normalized;
+      }
+      throw new Error(res.data?.message || "Failed to update child");
+    } catch (err) {
+      console.error("API error in updateChild:", err);
+      throw err;
+    }
   };
 
-  const archiveChild = (childId) => {
-    setChildrenList((prev) => prev.filter((c) => c.id !== childId));
+  const archiveChild = async (childId) => {
+    try {
+      const res = await api.patch(`/api/children/${childId}/status`, { status: "inactive" });
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) =>
+          prev.map((c) => (c.id === childId || c._id === childId ? normalized : c))
+        );
+        return normalized;
+      }
+      throw new Error(res.data?.message || "Failed to deactivate child");
+    } catch (err) {
+      console.error("API error in archiveChild:", err);
+      throw err;
+    }
   };
 
   const getChildById = (childId) => {
-    return childrenList.find((c) => c.id === childId);
+    return childrenList.find((c) => c.id === childId || c._id === childId);
   };
 
   return (
     <ChildrenContext.Provider
       value={{
         children: childrenList,
+        isLoading,
+        error,
+        fetchChildren,
         addChild,
         updateChild,
         archiveChild,
