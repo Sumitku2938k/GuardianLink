@@ -11,46 +11,31 @@ import { Button } from "@/components/ui/Button";
 
 export default function MyChildren() {
   const navigate = useNavigate();
-  const { children, archiveChild } = useChildren();
+  const { children, archiveChild, isLoading, error, fetchChildren } = useChildren();
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Recently Added");
 
-  // Mock Loading State
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
   // Archive Modal State
   const [archiveTarget, setArchiveTarget] = useState(null);
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
 
   const triggerArchiveFlow = (child) => {
     setArchiveTarget(child);
     setIsArchiveModalOpen(true);
   };
 
-  const handleConfirmArchive = () => {
+  const handleConfirmArchive = async () => {
     if (archiveTarget) {
-      archiveChild(archiveTarget.id);
+      await archiveChild(archiveTarget.id);
       setArchiveTarget(null);
     }
   };
 
   const handleRetry = () => {
-    setIsLoading(true);
-    setHasError(false);
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    if (fetchChildren) fetchChildren();
   };
 
   // Filter & Sort Logic
@@ -81,7 +66,7 @@ export default function MyChildren() {
       return b.id.localeCompare(a.id);
     });
 
-  if (hasError) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800">
         <div className="w-14 h-14 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mb-4">

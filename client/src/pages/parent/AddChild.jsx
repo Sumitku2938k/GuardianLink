@@ -164,26 +164,28 @@ export default function AddChild() {
     setEmergencyContacts(emergencyContacts.filter((c) => c.id !== id));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!authorized) {
       alert("You must authorize the registration to complete profile setup.");
       return;
     }
 
     setIsSubmitting(true);
+    setErrors({});
 
-    setTimeout(() => {
+    try {
       const childPayload = {
+        fullName: basicInfo.name,
         name: basicInfo.name,
         nickname: basicInfo.nickname,
-        age: calculateAge(basicInfo.dob),
         dob: basicInfo.dob,
+        dateOfBirth: basicInfo.dob,
         gender: basicInfo.gender,
         height: basicInfo.height || "N/A",
         weight: basicInfo.weight || "N/A",
-        bloodGroup: basicInfo.bloodGroup || "N/A",
+        bloodGroup: basicInfo.bloodGroup || "Unknown",
         schoolName: basicInfo.schoolName || "N/A",
-        languages: basicInfo.languages,
+        languages: basicInfo.languages || "Hindi, English",
         photo: photos.front || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
         photos: Object.values(photos),
         faceEnrollmentStatus: enrollmentStatus,
@@ -196,11 +198,17 @@ export default function AddChild() {
         emergencyContacts
       };
 
-      const savedChild = addChild(childPayload);
+      const savedChild = await addChild(childPayload);
       setSuccessChild(savedChild);
-      setIsSubmitting(false);
       setCurrentStep(6); // Success Step
-    }, 1500);
+    } catch (err) {
+      console.error("Failed to register child:", err);
+      const msg = err.response?.data?.message || err.message || "Failed to register child";
+      alert(`Registration Error: ${msg}`);
+      setErrors({ submit: msg });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const calculateAge = (dobString) => {

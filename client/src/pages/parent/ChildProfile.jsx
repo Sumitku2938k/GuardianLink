@@ -32,7 +32,7 @@ export default function ChildProfile() {
   const { childId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getChildById, updateChild, archiveChild } = useChildren();
+  const { getChildById, updateChild, archiveChild, isLoading } = useChildren();
 
   const child = getChildById(childId);
 
@@ -72,6 +72,15 @@ export default function ChildProfile() {
     }
   }, [searchParams]);
 
+  if (isLoading && !child) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <span className="text-xs font-mono font-bold text-slate-500">Loading Child Safety Profile...</span>
+      </div>
+    );
+  }
+
   if (!child) {
     return (
       <div className="text-center py-12">
@@ -84,18 +93,26 @@ export default function ChildProfile() {
     );
   }
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    updateChild(child.id, editForm);
-    setIsEditing(false);
+    try {
+      await updateChild(child.id, editForm);
+      setIsEditing(false);
+    } catch (err) {
+      alert(`Update Error: ${err.response?.data?.message || err.message}`);
+    }
   };
 
-  const handleConfirmArchive = () => {
-    archiveChild(child.id);
-    navigate("/parent/children");
+  const handleConfirmArchive = async () => {
+    try {
+      await archiveChild(child.id);
+      navigate("/parent/children");
+    } catch (err) {
+      alert(`Archive Error: ${err.response?.data?.message || err.message}`);
+    }
   };
 
-  const handleAddEmergencyContact = (e) => {
+  const handleAddEmergencyContact = async (e) => {
     e.preventDefault();
     if (!newContact.name.trim() || !newContact.phone.trim()) return;
 
@@ -104,14 +121,22 @@ export default function ChildProfile() {
       id: String(Date.now())
     }];
 
-    updateChild(child.id, { emergencyContacts: updatedContacts });
-    setNewContact({ name: "", relationship: "Mother", phone: "", alternatePhone: "", isPrimary: false });
-    setIsAddContactOpen(false);
+    try {
+      await updateChild(child.id, { emergencyContacts: updatedContacts });
+      setNewContact({ name: "", relationship: "Mother", phone: "", alternatePhone: "", isPrimary: false });
+      setIsAddContactOpen(false);
+    } catch (err) {
+      alert(`Failed to add contact: ${err.response?.data?.message || err.message}`);
+    }
   };
 
-  const handleRemoveEmergencyContact = (contactId) => {
+  const handleRemoveEmergencyContact = async (contactId) => {
     const updatedContacts = (child.emergencyContacts || []).filter((c) => c.id !== contactId);
-    updateChild(child.id, { emergencyContacts: updatedContacts });
+    try {
+      await updateChild(child.id, { emergencyContacts: updatedContacts });
+    } catch (err) {
+      alert(`Failed to remove contact: ${err.response?.data?.message || err.message}`);
+    }
   };
 
   const getStatusBadge = (status) => {
