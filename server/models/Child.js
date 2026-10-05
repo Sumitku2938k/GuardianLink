@@ -31,7 +31,115 @@ const childSchema = new mongoose.Schema(
         values: ["male", "female", "other", "prefer_not_to_say"],
         message: "Gender must be male, female, other, or prefer_not_to_say"
       },
-      required: [true, "Gender is required"]
+      required: [true, "Gender is required"],
+      set: (val) => (val ? val.toLowerCase().trim() : val)
+    },
+    nickname: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    bloodGroup: {
+      type: String,
+      trim: true,
+      default: "Unknown"
+    },
+    height: {
+      type: String,
+      trim: true,
+      default: "N/A"
+    },
+    weight: {
+      type: String,
+      trim: true,
+      default: "N/A"
+    },
+    schoolName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    languages: {
+      type: String,
+      trim: true,
+      default: "Hindi, English"
+    },
+    lastLocation: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    emergencyPin: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    distinctiveMarks: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    scars: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    birthmarks: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    otherMarks: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    hasMedicalInfo: {
+      type: Boolean,
+      default: false
+    },
+    medicalConditions: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    allergies: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    medications: {
+      type: String,
+      trim: true,
+      default: "None"
+    },
+    doctorName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    doctorContact: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    medicalNotes: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    emergencyContacts: [
+      {
+        name: { type: String, trim: true, default: "" },
+        relationship: { type: String, trim: true, default: "" },
+        phone: { type: String, trim: true, default: "" },
+        alternatePhone: { type: String, trim: true, default: "" },
+        isPrimary: { type: Boolean, default: false }
+      }
+    ],
+    photos: {
+      type: [String],
+      default: []
     },
     description: {
       type: String,
@@ -70,6 +178,9 @@ const childSchema = new mongoose.Schema(
   }
 );
 
+// Compound index for fast parent-scoped queries
+childSchema.index({ guardianId: 1, status: 1 });
+
 // Virtual: age calculated from dateOfBirth
 childSchema.virtual("age").get(function () {
   if (!this.dateOfBirth) return null;
@@ -82,6 +193,24 @@ childSchema.virtual("age").get(function () {
   }
   return Math.max(0, age);
 });
+
+// Virtual: dob alias for dateOfBirth (YYYY-MM-DD)
+childSchema.virtual("dob")
+  .get(function () {
+    return this.dateOfBirth ? this.dateOfBirth.toISOString().split("T")[0] : "";
+  })
+  .set(function (val) {
+    if (val) this.dateOfBirth = new Date(val);
+  });
+
+// Virtual: photo alias for photoUrl
+childSchema.virtual("photo")
+  .get(function () {
+    return this.photoUrl || (this.photos && this.photos[0]) || "";
+  })
+  .set(function (val) {
+    this.photoUrl = val;
+  });
 
 // Virtual: name alias for fullName
 childSchema.virtual("name")
