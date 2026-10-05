@@ -113,6 +113,14 @@ exports.rejectUser = async (req, res, next) => {
       });
     }
 
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin accounts cannot be rejected.",
+        code: "ADMIN_MODIFICATION_FORBIDDEN"
+      });
+    }
+
     user.status = "rejected";
     user.isVerified = false;
     user.rejectionReason =
@@ -144,6 +152,22 @@ exports.suspendUser = async (req, res, next) => {
         success: false,
         message: "User not found",
         code: "USER_NOT_FOUND"
+      });
+    }
+
+    if (req.user && req.user._id && req.user._id.toString() === user._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "Administrators cannot suspend their own account.",
+        code: "SELF_SUSPENSION_FORBIDDEN"
+      });
+    }
+
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Admin accounts cannot be suspended.",
+        code: "ADMIN_MODIFICATION_FORBIDDEN"
       });
     }
 
@@ -219,6 +243,22 @@ exports.updateUserRole = async (req, res, next) => {
         success: false,
         message: "User not found",
         code: "USER_NOT_FOUND"
+      });
+    }
+
+    if (req.user && req.user._id && req.user._id.toString() === user._id.toString() && role.toLowerCase() !== "admin") {
+      return res.status(400).json({
+        success: false,
+        message: "Administrators cannot demote their own account.",
+        code: "SELF_DEMOTION_FORBIDDEN"
+      });
+    }
+
+    if (user.role === "admin" && role.toLowerCase() !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "System admin accounts cannot be demoted.",
+        code: "ADMIN_DEMOTION_FORBIDDEN"
       });
     }
 
