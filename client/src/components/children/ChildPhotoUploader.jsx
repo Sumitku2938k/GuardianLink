@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { Upload, Trash2, Shield, AlertCircle, RefreshCcw, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-export const ChildPhotoUploader = ({ photos, onChange }) => {
+export const ChildPhotoUploader = ({ photos = {}, photoFiles = {}, onChange }) => {
   const slots = [
     { key: "front", label: "Front Face", desc: "Clear front shot with neutral expression" },
     { key: "left", label: "Left Profile", desc: "Left side profile angle" },
@@ -14,15 +14,19 @@ export const ChildPhotoUploader = ({ photos, onChange }) => {
   const handleFileChange = (key, e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      onChange({ ...photos, [key]: url });
+      const previewUrl = URL.createObjectURL(file);
+      const nextPhotos = { ...photos, [key]: previewUrl };
+      const nextFiles = { ...photoFiles, [key]: file };
+      onChange(nextPhotos, nextFiles);
     }
   };
 
   const handleRemove = (key) => {
-    const updated = { ...photos };
-    delete updated[key];
-    onChange(updated);
+    const nextPhotos = { ...photos };
+    delete nextPhotos[key];
+    const nextFiles = { ...photoFiles };
+    delete nextFiles[key];
+    onChange(nextPhotos, nextFiles);
   };
 
   return (
@@ -80,7 +84,7 @@ export const ChildPhotoUploader = ({ photos, onChange }) => {
                   </div>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={(e) => handleFileChange(slot.key, e)}
                     className="hidden"
                   />
@@ -94,7 +98,7 @@ export const ChildPhotoUploader = ({ photos, onChange }) => {
       <div className="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-start gap-3">
         <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
         <p className="text-[10px] text-gray-600 dark:text-slate-300 leading-relaxed">
-          <strong>Privacy Policy Guard:</strong> Photos uploaded are heavily encrypted using AES-256 standard and are strictly utilized for matching algorithms on verified search requests. They are never indexed publicly or shared with third parties.
+          <strong>Privacy Policy Guard:</strong> Photos uploaded are securely processed through GuardianLink storage pipeline and are strictly utilized for safety matching algorithms on verified search requests.
         </p>
       </div>
     </div>
@@ -102,7 +106,7 @@ export const ChildPhotoUploader = ({ photos, onChange }) => {
 };
 
 export const FaceEnrollmentCard = ({ photos, enrollmentStatus, setEnrollmentStatus }) => {
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = React.useState(0);
 
   const totalPhotosCount = Object.keys(photos).length;
   const isEligibleForIndexing = totalPhotosCount >= 3;
