@@ -54,6 +54,7 @@ export default function AddChild() {
 
   // Step 2: Photos & Identification
   const [photos, setPhotos] = useState({});
+  const [photoFiles, setPhotoFiles] = useState({});
   const [identification, setIdentification] = useState({
     distinctiveMarks: "",
     scars: "",
@@ -174,31 +175,38 @@ export default function AddChild() {
     setErrors({});
 
     try {
-      const childPayload = {
-        fullName: basicInfo.name,
-        name: basicInfo.name,
-        nickname: basicInfo.nickname,
-        dob: basicInfo.dob,
-        dateOfBirth: basicInfo.dob,
-        gender: basicInfo.gender,
-        height: basicInfo.height || "N/A",
-        weight: basicInfo.weight || "N/A",
-        bloodGroup: basicInfo.bloodGroup || "Unknown",
-        schoolName: basicInfo.schoolName || "N/A",
-        languages: basicInfo.languages || "Hindi, English",
-        photo: photos.front || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
-        photos: Object.values(photos),
-        faceEnrollmentStatus: enrollmentStatus,
-        distinctiveMarks: identification.distinctiveMarks || "None",
-        scars: identification.scars || "None",
-        birthmarks: identification.birthmarks || "None",
-        otherMarks: identification.otherMarks || "None",
-        hasMedicalInfo,
-        ...medicalInfo,
-        emergencyContacts
-      };
+      const formData = new FormData();
+      formData.append("fullName", basicInfo.name);
+      formData.append("name", basicInfo.name);
+      formData.append("nickname", basicInfo.nickname || "");
+      formData.append("dateOfBirth", basicInfo.dob);
+      formData.append("dob", basicInfo.dob);
+      formData.append("gender", basicInfo.gender);
+      formData.append("height", basicInfo.height || "N/A");
+      formData.append("weight", basicInfo.weight || "N/A");
+      formData.append("bloodGroup", basicInfo.bloodGroup || "Unknown");
+      formData.append("schoolName", basicInfo.schoolName || "N/A");
+      formData.append("languages", basicInfo.languages || "Hindi, English");
+      formData.append("distinctiveMarks", identification.distinctiveMarks || "None");
+      formData.append("scars", identification.scars || "None");
+      formData.append("birthmarks", identification.birthmarks || "None");
+      formData.append("otherMarks", identification.otherMarks || "None");
+      formData.append("hasMedicalInfo", String(hasMedicalInfo));
+      formData.append("medicalConditions", medicalInfo.medicalConditions || "None");
+      formData.append("allergies", medicalInfo.allergies || "None");
+      formData.append("medications", medicalInfo.medications || "None");
+      formData.append("doctorName", medicalInfo.doctorName || "");
+      formData.append("doctorContact", medicalInfo.doctorContact || "");
+      formData.append("medicalNotes", medicalInfo.medicalNotes || "");
+      formData.append("emergencyContacts", JSON.stringify(emergencyContacts));
 
-      const savedChild = await addChild(childPayload);
+      // Append real image file for backend Multer & Cloudinary upload pipeline
+      const primaryPhotoFile = photoFiles.front || Object.values(photoFiles)[0];
+      if (primaryPhotoFile) {
+        formData.append("photo", primaryPhotoFile);
+      }
+
+      const savedChild = await addChild(formData);
       setSuccessChild(savedChild);
       setCurrentStep(6); // Success Step
     } catch (err) {
@@ -387,10 +395,15 @@ export default function AddChild() {
               className="space-y-6"
             >
               <Card className="p-6 sm:p-8 space-y-6">
-                <ChildPhotoUploader photos={photos} onChange={(p) => {
-                  setPhotos(p);
-                  if (errors.photos) setErrors({ ...errors, photos: null });
-                }} />
+                <ChildPhotoUploader
+                  photos={photos}
+                  photoFiles={photoFiles}
+                  onChange={(p, f) => {
+                    setPhotos(p);
+                    if (f) setPhotoFiles(f);
+                    if (errors.photos) setErrors({ ...errors, photos: null });
+                  }}
+                />
                 {errors.photos && <p className="text-xs text-rose-500 font-semibold">{errors.photos}</p>}
 
                 <FaceEnrollmentCard

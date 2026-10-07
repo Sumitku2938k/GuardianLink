@@ -18,7 +18,10 @@ import {
   Image,
   ChevronRight,
   ShieldCheck,
-  Cpu
+  Cpu,
+  Camera,
+  Upload,
+  Loader2
 } from "lucide-react";
 import { useChildren } from "@/context/ChildrenContext";
 import { ChildTimeline } from "@/components/children/ChildTimeline";
@@ -32,16 +35,18 @@ export default function ChildProfile() {
   const { childId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getChildById, updateChild, archiveChild, isLoading } = useChildren();
+  const { getChildById, updateChild, updateChildPhoto, removeChildPhoto, archiveChild, isLoading } = useChildren();
 
   const child = getChildById(childId);
 
   // Tab State
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Edit State
+  // Edit & Photo State
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   // Modals & Media Lightbox
   const [activeImage, setActiveImage] = useState(null);
@@ -100,6 +105,43 @@ export default function ChildProfile() {
       setIsEditing(false);
     } catch (err) {
       alert(`Update Error: ${err.response?.data?.message || err.message}`);
+    }
+  };
+
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      alert("Invalid format. Please select a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds 5 MB limit.");
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      await updateChildPhoto(child.id, file);
+    } catch (err) {
+      alert(`Photo upload failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!confirm("Are you sure you want to remove this child's profile photo?")) return;
+    setIsUploadingPhoto(true);
+    try {
+      await removeChildPhoto(child.id);
+    } catch (err) {
+      alert(`Photo removal failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -186,15 +228,38 @@ export default function ChildProfile() {
         <div className="absolute top-0 right-0 w-80 h-80 bg-teal-400/5 rounded-full blur-3xl pointer-events-none" />
 
         {/* Profile Avatar */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 group">
           <img
             src={child.photo}
             alt={child.name}
             className="w-28 h-28 rounded-2xl object-cover ring-4 ring-white/10 shadow-xl"
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingPhoto}
+            className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[11px] font-bold gap-1 cursor-pointer"
+            title="Click to replace photo"
+          >
+            {isUploadingPhoto ? (
+              <Loader2 className="w-6 h-6 animate-spin text-teal-300" />
+            ) : (
+              <>
+                <Camera className="w-5 h-5 text-teal-300" />
+                <span>Replace</span>
+              </>
+            )}
+          </button>
           <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1 rounded-full ring-2 ring-slate-900">
             <ShieldCheck className="w-4.5 h-4.5" />
           </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handlePhotoSelect}
+            className="hidden"
+          />
         </div>
 
         {/* Details Area */}
@@ -449,10 +514,32 @@ export default function ChildProfile() {
                 exit={{ opacity: 0, y: -10 }}
               >
                 <Card className="p-6 sm:p-8 space-y-6">
-                  <div className="pb-3 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                  <div className="pb-3 border-b border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-bold text-gray-900 dark:text-white">Facial Vector Library</h3>
-                      <p className="text-xs text-gray-500">Photos uploaded and verified for biometric security matching.</p>
+                      <p className="text-xs text-gray-500">Persistent photos stored and verified for biometric security matching.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={Upload}
+                        isLoading={isUploadingPhoto}
+                      >
+                        Replace Photo
+                      </Button>
+                      {child.hasPersistentPhoto && (
+                        <Button
+                          onClick={handleRemovePhoto}
+                          variant="destructive"
+                          size="sm"
+                          leftIcon={Trash2}
+                          isDisabled={isUploadingPhoto}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </div>
                   </div>
 
