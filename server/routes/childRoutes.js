@@ -2,11 +2,14 @@ const express = require("express");
 const router = express.Router();
 const authenticate = require("../middleware/authenticate");
 const authorize = require("../middleware/authorize");
+const { uploadPhoto } = require("../middleware/upload");
 const {
   createChild,
   getChildren,
   getChildById,
   updateChild,
+  updateChildPhoto,
+  deleteChildPhoto,
   updateChildStatus
 } = require("../controllers/childController");
 
@@ -15,13 +18,18 @@ router.use(authenticate, authorize("parent"));
 
 router
   .route("/")
-  .post(createChild)
+  .post(uploadPhoto, createChild)
   .get(getChildren);
 
 router
   .route("/:id")
   .get(getChildById)
-  .patch(updateChild);
+  .patch(uploadPhoto, updateChild);
+
+router
+  .route("/:id/photo")
+  .patch(uploadPhoto, updateChildPhoto)
+  .delete(deleteChildPhoto);
 
 router
   .route("/:id/status")
