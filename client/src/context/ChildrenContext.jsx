@@ -36,8 +36,9 @@ const normalizeChildForUi = (c) => {
 
   const defaultPhoto =
     "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80";
-  const photo = c.photoUrl || c.photo || (Array.isArray(c.photos) && c.photos[0]) || defaultPhoto;
-  const photos = Array.isArray(c.photos) && c.photos.length > 0 ? c.photos : [photo];
+  const persistentPhoto = c.photoUrl || (Array.isArray(c.photos) && c.photos[0]) || "";
+  const photo = persistentPhoto || c.photo || defaultPhoto;
+  const photos = Array.isArray(c.photos) && c.photos.length > 0 ? c.photos : (persistentPhoto ? [persistentPhoto] : [photo]);
 
   const uiStatus =
     c.status === "inactive"
@@ -59,6 +60,9 @@ const normalizeChildForUi = (c) => {
     status: uiStatus,
     rawStatus: c.status || "active",
     photo,
+    photoUrl: persistentPhoto,
+    cloudinaryPublicId: c.cloudinaryPublicId || "",
+    hasPersistentPhoto: Boolean(persistentPhoto),
     photos,
     emergencyPin: c.emergencyPin || `GL-${id.slice(-4).toUpperCase()}`,
     schoolName: c.schoolName || "N/A",
@@ -157,6 +161,42 @@ export const ChildrenProvider = ({ children }) => {
     }
   };
 
+  const updateChildPhoto = async (childId, photoFile) => {
+    try {
+      const formData = new FormData();
+      formData.append("photo", photoFile);
+      const res = await api.patch(`/api/children/${childId}/photo`, formData);
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) =>
+          prev.map((c) => (c.id === childId || c._id === childId ? normalized : c))
+        );
+        return normalized;
+      }
+      throw new Error(res.data?.message || "Failed to update child photo");
+    } catch (err) {
+      console.error("API error in updateChildPhoto:", err);
+      throw err;
+    }
+  };
+
+  const removeChildPhoto = async (childId) => {
+    try {
+      const res = await api.delete(`/api/children/${childId}/photo`);
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) =>
+          prev.map((c) => (c.id === childId || c._id === childId ? normalized : c))
+        );
+        return normalized;
+      }
+      throw new Error(res.data?.message || "Failed to remove child photo");
+    } catch (err) {
+      console.error("API error in removeChildPhoto:", err);
+      throw err;
+    }
+  };
+
   const archiveChild = async (childId) => {
     try {
       const res = await api.patch(`/api/children/${childId}/status`, { status: "inactive" });
@@ -187,6 +227,8 @@ export const ChildrenProvider = ({ children }) => {
         fetchChildren,
         addChild,
         updateChild,
+        updateChildPhoto,
+        removeChildPhoto,
         archiveChild,
         getChildById
       }}

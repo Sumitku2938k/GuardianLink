@@ -26,25 +26,49 @@ export const RegisterChildModal = ({ isOpen, onClose, onRegisterSuccess }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      onRegisterSuccess({
-        id: Date.now(),
-        name: formData.name || "Aarav Doe",
-        age: formData.age || "8",
-        gender: formData.gender,
-        bloodGroup: formData.bloodGroup,
-        status: "Protected",
-        lastLocation: formData.schoolName || "Greenwood High School, Delhi",
-        photo: photoPreview || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
-        emergencyPin: `GL-${Math.floor(1000 + Math.random() * 9000)}`,
-      });
+    try {
+      const form = new FormData();
+      form.append("fullName", formData.name || "Aarav Sharma");
+      form.append("name", formData.name || "Aarav Sharma");
+
+      const ageNum = parseInt(formData.age, 10) || 5;
+      const approxDob = new Date();
+      approxDob.setFullYear(approxDob.getFullYear() - ageNum);
+      form.append("dateOfBirth", approxDob.toISOString().split("T")[0]);
+      form.append("gender", formData.gender || "Male");
+      form.append("bloodGroup", formData.bloodGroup || "O+");
+      form.append("schoolName", formData.schoolName || "N/A");
+      form.append("medicalNotes", formData.medicalNotes || "None");
+
+      if (formData.emergencyContact) {
+        form.append(
+          "emergencyContacts",
+          JSON.stringify([
+            {
+              name: "Primary Contact",
+              phone: formData.emergencyContact,
+              relationship: "Guardian",
+              isPrimary: true
+            }
+          ])
+        );
+      }
+
+      if (formData.photo) {
+        form.append("photo", formData.photo);
+      }
+
+      await onRegisterSuccess(form);
       onClose();
-    }, 1200);
+    } catch (err) {
+      alert(`Registration failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
