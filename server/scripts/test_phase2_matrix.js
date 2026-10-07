@@ -1,6 +1,9 @@
 const { createClient } = require('redis');
+const mongoose = require('mongoose');
+const { User } = require('../models');
 
 const API_BASE = 'http://localhost:5000';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://mongo:27017/guardianlink';
 
 const ROLES_TEST_DATA = [
   {
@@ -44,6 +47,32 @@ async function runPhase2Audit() {
   const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://redis:6379' });
   await redisClient.connect();
   console.log('✓ Connected to Redis at ' + (process.env.REDIS_URL || 'redis://redis:6379'));
+
+  // Connect to MongoDB and ensure test users exist
+  await mongoose.connect(MONGO_URI);
+  for (let i = 0; i < ROLES_TEST_DATA.length; i++) {
+    const item = ROLES_TEST_DATA[i];
+    if (item.role === 'admin') continue;
+    let existing = await User.findOne({ email: item.email });
+    if (!existing) {
+      await User.create({
+        name: `Auth ${item.role.toUpperCase()}`,
+        email: item.email,
+        phone: `950000000${i}`,
+        passwordHash: item.password,
+        role: item.role,
+        status: item.role === 'citizen' || item.role === 'parent' ? 'active' : 'approved',
+        isVerified: true,
+        isActive: true
+      });
+    } else {
+      existing.passwordHash = item.password;
+      existing.status = item.role === 'citizen' || item.role === 'parent' ? 'active' : 'approved';
+      existing.isActive = true;
+      existing.isVerified = true;
+      await existing.save();
+    }
+  }
 
   let allPassed = true;
   const results = [];
@@ -313,6 +342,7 @@ async function runPhase2Audit() {
   }
 
   await redisClient.quit();
+  await mongoose.disconnect();
 
   console.log('\n====================================================');
   console.log('                 FINAL TEST SUMMARY');
