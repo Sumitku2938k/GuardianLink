@@ -15,6 +15,7 @@ const healthRoutes = require("./routes/healthRoutes");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const childRoutes = require("./routes/childRoutes");
+const caseRoutes = require("./routes/caseRoutes");
 
 // Middleware Imports
 const errorHandler = require("./middleware/errorHandler");
@@ -69,6 +70,7 @@ app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/children", childRoutes);
+app.use("/api/cases", caseRoutes);
 
 // Catch 404 & forward to error handler
 app.use((req, res, next) => {
