@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 
 export default function MissingCasesList() {
   const navigate = useNavigate();
-  const { missingCases, potentialMatches } = useMissingCases();
+  const { missingCases, potentialMatches, isLoading, error, fetchCases } = useMissingCases();
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,27 +19,12 @@ export default function MissingCasesList() {
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [sortBy, setSortBy] = useState("Recently Created");
 
-  // Simulated Loading & Error State
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
   const activeEmergencyCase = missingCases.find(
     (c) => c.status === "Active" || c.status === "Investigating" || c.status === "Potential Match" || c.status === "Under Review"
   );
 
   const handleRetry = () => {
-    setIsLoading(true);
-    setHasError(false);
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
+    fetchCases();
   };
 
   // Filter & Sort logic
@@ -70,7 +55,7 @@ export default function MissingCasesList() {
       return b.id.localeCompare(a.id);
     });
 
-  if (hasError) {
+  if (error && missingCases.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-gray-100 dark:border-slate-800">
         <div className="w-14 h-14 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mb-4">
@@ -78,7 +63,7 @@ export default function MissingCasesList() {
         </div>
         <h3 className="text-xl font-bold text-gray-900 dark:text-white">Unable to load missing cases</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-sm">
-          A network connection timeout occurred while fetching emergency records.
+          {error || "A network connection timeout occurred while fetching emergency records."}
         </p>
         <Button onClick={handleRetry} variant="primary" size="sm" className="mt-5" leftIcon={RefreshCw}>
           Retry

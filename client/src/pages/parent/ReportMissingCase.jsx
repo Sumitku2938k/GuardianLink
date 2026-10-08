@@ -90,7 +90,7 @@ export default function ReportMissingCase() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdCase, setCreatedCase] = useState(null);
 
-  const selectedChild = children.find((c) => c.id === selectedChildId);
+  const selectedChild = children.find((c) => c.id === selectedChildId || c._id === selectedChildId);
 
   const handleSelectChild = (childId) => {
     setSelectedChildId(childId);
@@ -138,21 +138,27 @@ export default function ReportMissingCase() {
     }
   };
 
-  const handleSubmitCase = () => {
+  const handleSubmitCase = async () => {
     if (!authorized) {
       alert("You must confirm the legal guardian authorization checkbox.");
       return;
     }
 
-    setIsSubmitting(true);
+    if (!selectedChild) {
+      setErrors((prev) => ({ ...prev, submit: "Please select a valid registered child." }));
+      return;
+    }
 
-    setTimeout(() => {
+    setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, submit: null }));
+
+    try {
       const casePayload = {
-        childId: selectedChild.id,
-        childName: selectedChild.name,
+        childId: selectedChild.id || selectedChild._id,
+        childName: selectedChild.name || selectedChild.fullName,
         childAge: selectedChild.age,
         childGender: selectedChild.gender,
-        childPhoto: selectedChild.photo,
+        childPhoto: selectedChild.photo || selectedChild.photoUrl,
         priority: appearance.priority,
         lastSeenDate: lastSeen.date,
         lastSeenTime: lastSeen.time,
@@ -179,11 +185,16 @@ export default function ReportMissingCase() {
         firDate: firData.firDate
       };
 
-      const result = createCase(casePayload);
+      const result = await createCase(casePayload);
       setCreatedCase(result);
-      setIsSubmitting(false);
       setCurrentStep(6); // Success Step
-    }, 1500);
+    } catch (err) {
+      const errorMsg =
+        err.response?.data?.message || err.message || "Failed to submit emergency report. Please try again.";
+      setErrors((prev) => ({ ...prev, submit: errorMsg }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -790,14 +801,21 @@ export default function ReportMissingCase() {
                 Continue
               </Button>
             ) : (
-              <Button
-                onClick={handleSubmitCase}
-                variant="destructive"
-                isLoading={isSubmitting}
-                isDisabled={!authorized}
-              >
-                Submit Missing Child Report
-              </Button>
+              <div className="flex flex-col items-end gap-2">
+                {errors.submit && (
+                  <p className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900">
+                    {errors.submit}
+                  </p>
+                )}
+                <Button
+                  onClick={handleSubmitCase}
+                  variant="destructive"
+                  isLoading={isSubmitting}
+                  isDisabled={!authorized}
+                >
+                  Submit Missing Child Report
+                </Button>
+              </div>
             )}
           </div>
         )}
