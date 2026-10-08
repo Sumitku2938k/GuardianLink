@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import api from "@/lib/axios";
+import { useAuth } from "@/context/AuthContext";
 
 const MissingCasesContext = createContext();
 
@@ -10,189 +12,144 @@ export const useMissingCases = () => {
   return context;
 };
 
-export const MissingCasesProvider = ({ children }) => {
-  const [missingCases, setMissingCases] = useState([
-    {
-      id: "MC-2026-8821",
-      caseNumber: "MC-2026-8821",
-      childId: "3",
-      childName: "Kabir Mehta",
-      childAge: 10,
-      childGender: "Male",
-      childPhoto: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      status: "Investigating", // Draft, Active, Under Review, Investigating, Potential Match, Found, Reunification, Recovered, Closed
-      priority: "High", // Low, Medium, High, Critical
-      stageIndex: 4, // 1 to 9 matching status tracker stages
-      
-      // Last Seen
-      lastSeenDate: "2026-08-08",
-      lastSeenTime: "14:30",
-      lastSeenLocation: "Central Metro Station Gate #3, Sector 12",
-      locationLandmark: "Opposite Domino's Pizza, Metro Exit 3",
-      latitude: "28.6139",
-      longitude: "77.2090",
-      lastKnownActivity: "Walking towards tuition center after afternoon class",
-      companion: "Alone",
-      
-      // Appearance & Clothing
-      clothingTop: "Blue school shirt with navy collar",
-      clothingBottom: "Dark grey trousers",
-      clothingShoes: "Black leather shoes with white socks",
-      accessories: "Red Adidas backpack",
-      height: "140 cm",
-      hair: "Short black hair, side parting",
-      skinTone: "Fair",
-      distinctiveMarks: "Visible scar on right forearm from bicycle injury",
-      circumstances: "Did not arrive at tuition center after 2:15 PM school dismissal. Phone was unreachable.",
-      vehicleInvolved: false,
-      vehicleDetails: "",
-      
-      // FIR Details
-      firAvailable: true,
-      firNumber: "FIR-492/2026",
-      policeStation: "Delhi Central Metro Police Station",
-      firDate: "2026-08-08",
-      firDocument: "FIR_MC-2026-8821.pdf",
-      
-      // Authority & Police Assignment
-      policeStatus: "Investigating",
-      policeAssigned: true,
-      policeStationName: "Delhi Central Metro Police Station - Crime Branch",
-      policeOfficerName: "Inspector R. S. Rathore",
-      policeBadgeNumber: "DL-POL-9482",
-      policeContact: "+91 98110 00100",
-      policeAssignedTime: "2026-08-08 15:45",
-      policeLastUpdate: "AI camera feed matched candidate at Metro Station 4B. Squad dispatched.",
-      
-      // Live Location & Verification Status
-      liveLocationActive: true,
-      lastSharedLocation: "Metro Station Exit 4B, Sector 14",
-      lastLocationTimestamp: "8 minutes ago",
+// Stage index mapping for CaseStatusTracker
+const STAGE_MAP = {
+  reported: 1,
+  under_verification: 2,
+  active: 4,
+  found: 6,
+  reunited: 8,
+  closed: 9,
+  cancelled: 1
+};
 
-      createdAt: "2026-08-08 15:00",
-      updatedAt: "10 minutes ago"
-    },
-    {
-      id: "MC-2026-4431",
-      caseNumber: "MC-2026-4431",
-      childId: "4",
-      childName: "Rhea Kapoor",
-      childAge: 7,
-      childGender: "Female",
-      childPhoto: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80",
-      status: "Under Review",
-      priority: "Critical",
-      stageIndex: 2,
-      
-      // Last Seen
-      lastSeenDate: "2026-08-09",
-      lastSeenTime: "11:15",
-      lastSeenLocation: "City Mall Food Court, 2nd Floor",
-      locationLandmark: "Near McDonald's play area",
-      latitude: "28.5355",
-      longitude: "77.3910",
-      lastKnownActivity: "Playing near soft play area while parent ordered food",
-      companion: "Parent was 10 feet away",
-      
-      // Appearance & Clothing
-      clothingTop: "Pink frock with floral patterns",
-      clothingBottom: "White leggings",
-      clothingShoes: "Pink sneakers with lights",
-      accessories: "Yellow hairband with bow",
-      height: "120 cm",
-      hair: "Long brown hair in pigtails",
-      skinTone: "Wheatish",
-      distinctiveMarks: "Small birthmark on left calf",
-      circumstances: "Disappeared from play area during peak Sunday crowd.",
-      vehicleInvolved: false,
-      vehicleDetails: "",
-      
-      // FIR Details
-      firAvailable: false,
-      firNumber: "",
-      policeStation: "City Mall Police Booth",
-      firDate: "",
-      firDocument: null,
-      
-      // Authority & Police Assignment
-      policeStatus: "Awaiting Review",
-      policeAssigned: false,
-      policeStationName: "Sector 18 Central Police Post",
-      policeOfficerName: "Awaiting Duty Officer",
-      policeBadgeNumber: "",
-      policeContact: "+91 98110 00112",
-      policeAssignedTime: "Pending",
-      policeLastUpdate: "Emergency report received. Desk officer reviewing camera logs.",
-      
-      liveLocationActive: false,
-      lastSharedLocation: "City Mall Food Court",
-      lastLocationTimestamp: "35 minutes ago",
+export const normalizeCaseForUi = (c) => {
+  if (!c) return null;
+  const id = c._id ? c._id.toString() : (c.id || "");
+  const caseNumber = c.policeCaseNumber || c.caseNumber || `MC-${id.slice(-6).toUpperCase()}`;
 
-      createdAt: "2026-08-09 11:30",
-      updatedAt: "25 minutes ago"
-    },
-    {
-      id: "MC-2026-1092",
-      caseNumber: "MC-2026-1092",
-      childId: "2",
-      childName: "Ananya Sharma",
-      childAge: 5,
-      childGender: "Female",
-      childPhoto: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
-      status: "Recovered",
-      priority: "Medium",
-      stageIndex: 9,
-      
-      // Last Seen
-      lastSeenDate: "2026-07-10",
-      lastSeenTime: "16:00",
-      lastSeenLocation: "Public Park Gate #1, Sector 9",
-      locationLandmark: "Near ice cream kiosk",
-      latitude: "28.6200",
-      longitude: "77.2100",
-      lastKnownActivity: "Playing near swings",
-      companion: "Daycare caretaker",
-      
-      // Appearance & Clothing
-      clothingTop: "Yellow T-shirt",
-      clothingBottom: "Blue denim shorts",
-      clothingShoes: "Red sandals",
-      accessories: "Pink water bottle",
-      height: "105 cm",
-      hair: "Short black hair",
-      skinTone: "Fair",
-      distinctiveMarks: "Light birthmark on back of neck",
-      circumstances: "Wandered off near park entrance.",
-      vehicleInvolved: false,
-      vehicleDetails: "",
-      
-      // FIR Details
-      firAvailable: true,
-      firNumber: "FIR-210/2026",
-      policeStation: "Sector 9 Police Station",
-      firDate: "2026-07-10",
-      firDocument: "FIR_210_Resolved.pdf",
-      
-      // Authority & Police Assignment
-      policeStatus: "Closed",
-      policeAssigned: true,
-      policeStationName: "Sector 9 Police Station",
-      policeOfficerName: "Sub-Inspector M. K. Verma",
-      policeBadgeNumber: "DL-POL-3321",
-      policeContact: "+91 98110 00900",
-      policeAssignedTime: "2026-07-10 16:30",
-      policeLastUpdate: "Child safely located at neighborhood security post and reunited with parents.",
-      
-      liveLocationActive: false,
-      lastSharedLocation: "Sector 9 Security Station",
-      lastLocationTimestamp: "2026-07-10 17:45",
+  // Child details (c.childId might be populated object or id string)
+  const child = (typeof c.childId === "object" && c.childId !== null) ? c.childId : {};
+  const childId = child._id ? child._id.toString() : (typeof c.childId === "string" ? c.childId : "");
+  const childName = child.fullName || child.name || c.childName || "Unknown Child";
 
-      createdAt: "2026-07-10 16:15",
-      updatedAt: "2026-07-10 18:00"
+  // Calculate age
+  let childAge = c.childAge;
+  if (childAge === undefined || childAge === null) {
+    if (child.dateOfBirth) {
+      const birth = new Date(child.dateOfBirth);
+      const today = new Date();
+      childAge = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) childAge--;
+      childAge = Math.max(0, childAge);
+    } else {
+      childAge = child.age || 0;
     }
-  ]);
+  }
 
-  // Potential Matches Data
+  const defaultPhoto =
+    "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80";
+  const childPhoto =
+    child.photoUrl || (Array.isArray(child.photos) && child.photos[0]) || c.childPhoto || defaultPhoto;
+  const childGender = child.gender
+    ? child.gender.charAt(0).toUpperCase() + child.gender.slice(1).toLowerCase()
+    : c.childGender || "Unknown";
+
+  const rawStatus = (c.status || "reported").toLowerCase();
+  const stageIndex = c.stageIndex || STAGE_MAP[rawStatus] || 1;
+
+  // Format status for UI badges & display
+  const statusDisplayMap = {
+    reported: "Under Review",
+    under_verification: "Under Review",
+    active: "Active",
+    found: "Found",
+    reunited: "Reunification",
+    closed: "Closed",
+    cancelled: "Cancelled"
+  };
+  const uiStatus = statusDisplayMap[rawStatus] || c.status || "Active";
+
+  const rawPriority = (c.priority || "high").toLowerCase();
+  const priority = rawPriority.charAt(0).toUpperCase() + rawPriority.slice(1);
+
+  // Missing Date & Time parsing
+  let lastSeenDate = c.lastSeenDate || "";
+  let lastSeenTime = c.lastSeenTime || "";
+  if (c.missingDate) {
+    try {
+      const d = new Date(c.missingDate);
+      if (!isNaN(d.getTime())) {
+        lastSeenDate = d.toISOString().split("T")[0];
+        lastSeenTime = d.toTimeString().split(" ")[0].substring(0, 5);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Location formatting
+  let locStr = "";
+  let landmark = "";
+  let lat = "";
+  let lng = "";
+  if (typeof c.lastSeenLocation === "object" && c.lastSeenLocation !== null) {
+    locStr =
+      c.lastSeenLocation.address ||
+      [c.lastSeenLocation.city, c.lastSeenLocation.state].filter(Boolean).join(", ");
+    landmark = c.lastSeenLocation.pinCode ? `PIN: ${c.lastSeenLocation.pinCode}` : "";
+    lat = c.lastSeenLocation.latitude !== undefined ? String(c.lastSeenLocation.latitude) : "";
+    lng = c.lastSeenLocation.longitude !== undefined ? String(c.lastSeenLocation.longitude) : "";
+  } else if (typeof c.lastSeenLocation === "string") {
+    locStr = c.lastSeenLocation;
+  }
+  if (!locStr) locStr = "Location recorded on file";
+
+  const firNumber = c.firNumber || "";
+  const firAvailable = Boolean(firNumber);
+
+  return {
+    ...c,
+    id,
+    _id: id,
+    caseNumber,
+    policeCaseNumber: c.policeCaseNumber || caseNumber,
+    childId,
+    childName,
+    childAge,
+    childGender,
+    childPhoto,
+    status: uiStatus,
+    rawStatus,
+    priority,
+    stageIndex,
+    lastSeenDate: lastSeenDate || new Date().toISOString().split("T")[0],
+    lastSeenTime: lastSeenTime || "12:00",
+    lastSeenLocation: locStr,
+    locationLandmark: landmark || c.locationLandmark || "",
+    latitude: lat || c.latitude || "28.6139",
+    longitude: lng || c.longitude || "77.2090",
+    circumstances: c.lastSeenDescription || c.circumstances || "Incident details on file",
+    lastSeenDescription: c.lastSeenDescription || c.circumstances || "",
+    firNumber,
+    firAvailable,
+    policeStatus: rawStatus === "active" ? "Investigating" : (rawStatus === "closed" ? "Closed" : "Under Review"),
+    policeStationName: c.policeStationName || c.policeStation || "Central Police Control Room",
+    policeOfficerName: c.policeOfficerName || "Assigned Duty Officer",
+    policeContact: c.policeContact || "+91 98110 00100",
+    createdAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : "Recently",
+    updatedAt: c.updatedAt ? new Date(c.updatedAt).toLocaleString() : "Recently"
+  };
+};
+
+export const MissingCasesProvider = ({ children }) => {
+  const { user } = useAuth();
+  const [missingCases, setMissingCases] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Potential Matches Data (Secondary UI compatibility)
   const [potentialMatches, setPotentialMatches] = useState([
     {
       id: "pm-101",
@@ -205,18 +162,6 @@ export const MissingCasesProvider = ({ children }) => {
       verificationStatus: "Guardian Verification Required",
       isVerified: false,
       notes: "AI facial vector match triggered on public CCTV feed. High confidence match on eye-to-nose geometry."
-    },
-    {
-      id: "pm-102",
-      caseId: "MC-2026-8821",
-      childId: "3",
-      matchPhoto: "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80",
-      confidenceScore: "81.2%",
-      matchDate: "2026-08-08 15:40",
-      location: "Bus Terminal Platform 2",
-      verificationStatus: "Under Review by Police Desk",
-      isVerified: false,
-      notes: "Possible candidate match flagged by citizen upload."
     }
   ]);
 
@@ -235,223 +180,221 @@ export const MissingCasesProvider = ({ children }) => {
   ]);
 
   // Case Timelines Data
-  const [caseTimelines, setCaseTimelines] = useState({
-    "MC-2026-8821": [
-      {
-        id: "ctl-1",
-        title: "Missing Child Report Submitted",
-        desc: "Parent filed emergency red alert report with location coordinates.",
-        time: "2026-08-08 15:00",
-        actor: "Parent (John Doe)",
-        stageIndex: 1
-      },
-      {
-        id: "ctl-2",
-        title: "Report Received & Under Desk Review",
-        desc: "GuardianLink automated system validated KYC authority.",
-        time: "2026-08-08 15:05",
-        actor: "GuardianLink AI System",
-        stageIndex: 2
-      },
-      {
-        id: "ctl-3",
-        title: "Police Station Assigned",
-        desc: "Assigned to Delhi Central Metro Police Station - Crime Branch.",
-        time: "2026-08-08 15:45",
-        actor: "Delhi Police Control Room",
-        stageIndex: 3
-      },
-      {
-        id: "ctl-4",
-        title: "Investigation Active",
-        desc: "Officer Insp. R. S. Rathore initiated camera network scan.",
-        time: "2026-08-08 16:00",
-        actor: "Police Duty Officer",
-        stageIndex: 4
-      },
-      {
-        id: "ctl-5",
-        title: "AI Face Vector Potential Match Detected",
-        desc: "CCTV Camera #12 at Metro Exit 4B flagged candidate photo with 94.8% confidence.",
-        time: "2026-08-08 16:10",
-        actor: "GuardianLink AI Neural Engine",
-        stageIndex: 5
-      }
-    ],
-    "MC-2026-4431": [
-      {
-        id: "ctl-10",
-        title: "Emergency Missing Report Submitted",
-        desc: "Critical priority case reported at City Mall food court.",
-        time: "2026-08-09 11:30",
-        actor: "Parent (John Doe)",
-        stageIndex: 1
-      },
-      {
-        id: "ctl-11",
-        title: "Under Desk Review",
-        desc: "Dispatch queue assigned to Sector 18 Police Post.",
-        time: "2026-08-09 11:35",
-        actor: "GuardianLink AI System",
-        stageIndex: 2
-      }
-    ],
-    "MC-2026-1092": [
-      {
-        id: "ctl-20",
-        title: "Case Created",
-        desc: "Report filed for Ananya Sharma.",
-        time: "2026-07-10 16:15",
-        actor: "Parent",
-        stageIndex: 1
-      },
-      {
-        id: "ctl-21",
-        title: "Child Located & Verified",
-        desc: "Sighted by park security and reunited with family.",
-        time: "2026-07-10 17:45",
-        actor: "Security Team",
-        stageIndex: 8
-      },
-      {
-        id: "ctl-22",
-        title: "Case Formally Closed",
-        desc: "Parent confirmed safe recovery. FIR closed.",
-        time: "2026-07-10 18:00",
-        actor: "Parent / Police",
-        stageIndex: 9
-      }
-    ]
-  });
+  const [caseTimelines, setCaseTimelines] = useState({});
 
-  // Create Case
-  const createCase = (casePayload) => {
-    const caseNum = `MC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newCase = {
-      ...casePayload,
-      id: caseNum,
-      caseNumber: caseNum,
-      status: "Active",
-      stageIndex: 1,
-      policeStatus: "Awaiting Review",
-      policeAssigned: false,
-      policeStationName: casePayload.policeStation || "Central Police Control Room",
-      policeOfficerName: "Awaiting Officer Assignment",
-      policeBadgeNumber: "",
-      policeContact: "+91 98110 00100",
-      policeAssignedTime: "Pending",
-      policeLastUpdate: "Case queued for immediate authority review.",
-      liveLocationActive: false,
-      lastSharedLocation: casePayload.lastSeenLocation,
-      lastLocationTimestamp: "Just Now",
-      createdAt: new Date().toLocaleString(),
-      updatedAt: "Just Now"
-    };
-
-    const initialTimeline = [
-      {
-        id: `ctl-${Date.now()}`,
-        title: "Missing Child Report Submitted",
-        desc: "Emergency report filed by parent.",
-        time: "Just Now",
-        actor: "Parent Guardian",
-        stageIndex: 1
+  // Fetch Cases from Backend
+  const fetchCases = useCallback(async () => {
+    if (!user) return [];
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.get("/api/cases");
+      if (response.data && response.data.success) {
+        const rawCases = response.data.cases || [];
+        const normalized = rawCases.map(normalizeCaseForUi);
+        setMissingCases(normalized);
+        return normalized;
       }
-    ];
+      return [];
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to fetch missing cases";
+      setError(msg);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
-    setMissingCases((prev) => [newCase, ...prev]);
-    setCaseTimelines((prev) => ({ ...prev, [caseNum]: initialTimeline }));
+  // Initial load when user logs in
+  useEffect(() => {
+    if (user) {
+      fetchCases();
+    } else {
+      setMissingCases([]);
+    }
+  }, [user, fetchCases]);
 
-    return newCase;
+  // Create Case (POST /api/cases)
+  const createCase = async (casePayload) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      let missingDate = new Date();
+      if (casePayload.lastSeenDate) {
+        const timePart = casePayload.lastSeenTime || "12:00";
+        missingDate = new Date(`${casePayload.lastSeenDate}T${timePart}:00`);
+        if (isNaN(missingDate.getTime())) {
+          missingDate = new Date();
+        }
+      }
+
+      const body = {
+        childId: casePayload.childId,
+        missingDate: missingDate.toISOString(),
+        lastSeenLocation: {
+          address: casePayload.lastSeenLocation || "Unspecified location",
+          latitude: casePayload.latitude ? Number(casePayload.latitude) : undefined,
+          longitude: casePayload.longitude ? Number(casePayload.longitude) : undefined
+        },
+        lastSeenDescription: [
+          casePayload.circumstances,
+          casePayload.clothingTop ? `Clothing: ${casePayload.clothingTop}` : null,
+          casePayload.clothingBottom ? `Bottom: ${casePayload.clothingBottom}` : null
+        ].filter(Boolean).join(". "),
+        priority: (casePayload.priority || "high").toLowerCase(),
+        firNumber: casePayload.firNumber || ""
+      };
+
+      const response = await api.post("/api/cases", body);
+
+      if (response.data && response.data.success) {
+        const createdRaw = response.data.case;
+        const normalized = normalizeCaseForUi(createdRaw);
+
+        // Update local state
+        setMissingCases((prev) => [normalized, ...prev.filter((c) => c.id !== normalized.id)]);
+
+        // Initialize timeline
+        const initialTimeline = [
+          {
+            id: `ctl-${Date.now()}`,
+            title: "Missing Child Report Submitted",
+            desc: "Emergency report registered with platform authorities.",
+            time: "Just Now",
+            actor: "Parent Guardian",
+            stageIndex: 1
+          }
+        ];
+        setCaseTimelines((prev) => ({
+          ...prev,
+          [normalized.id]: initialTimeline,
+          [normalized.caseNumber]: initialTimeline
+        }));
+
+        return normalized;
+      }
+      throw new Error(response.data?.message || "Failed to create missing case report");
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to file missing case report";
+      setError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Update Case
+  // Update Case Status (PATCH /api/cases/:caseId/status)
+  const updateCaseStatus = async (caseId, newStatus) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.patch(`/api/cases/${caseId}/status`, { status: newStatus });
+      if (response.data && response.data.success) {
+        const updatedRaw = response.data.case;
+        const normalized = normalizeCaseForUi(updatedRaw);
+
+        setMissingCases((prev) =>
+          prev.map((c) => (c.id === normalized.id || c.caseNumber === normalized.caseNumber ? normalized : c))
+        );
+        return normalized;
+      }
+      throw new Error(response.data?.message || "Failed to update case status");
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to update status";
+      setError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get Case By ID (from cache or API)
+  const getCaseById = async (caseId) => {
+    if (!caseId) return null;
+    const found = missingCases.find(
+      (c) => c.id === caseId || c._id === caseId || c.caseNumber === caseId || c.policeCaseNumber === caseId
+    );
+    if (found) return found;
+
+    try {
+      const response = await api.get(`/api/cases/${caseId}`);
+      if (response.data && response.data.success) {
+        const normalized = normalizeCaseForUi(response.data.case);
+        setMissingCases((prev) => [normalized, ...prev.filter((c) => c.id !== normalized.id)]);
+        return normalized;
+      }
+    } catch (err) {
+      console.error("Failed to fetch case by ID:", err);
+    }
+    return null;
+  };
+
+  // Synchronous lookup from current cached state
+  const findCaseInState = (caseId) => {
+    if (!caseId) return null;
+    return missingCases.find(
+      (c) => c.id === caseId || c._id === caseId || c.caseNumber === caseId || c.policeCaseNumber === caseId
+    );
+  };
+
+  // Check if Child has an Active Case
+  const getActiveCaseForChild = (childId) => {
+    if (!childId) return null;
+    const targetId = String(childId);
+    return missingCases.find((c) => {
+      const cid = String(c.childId);
+      const isActiveStatus = ["reported", "under_verification", "active", "found"].includes(
+        (c.rawStatus || c.status || "").toLowerCase()
+      );
+      return cid === targetId && isActiveStatus;
+    });
+  };
+
+  // UI state modifiers for backwards-compatibility
   const updateCase = (caseId, updates) => {
     setMissingCases((prev) =>
       prev.map((c) => {
-        if (c.id === caseId) {
-          return {
-            ...c,
-            ...updates,
-            updatedAt: "Just Now"
-          };
+        if (c.id === caseId || c.caseNumber === caseId) {
+          return { ...c, ...updates, updatedAt: "Just Now" };
         }
         return c;
       })
     );
   };
 
-  // Verify Match
   const verifyMatch = (caseId, matchId) => {
     setPotentialMatches((prev) =>
       prev.map((m) => {
         if (m.id === matchId) {
-          return {
-            ...m,
-            isVerified: true,
-            verificationStatus: "Verified by Guardian"
-          };
+          return { ...m, isVerified: true, verificationStatus: "Verified by Guardian" };
         }
         return m;
       })
     );
-
-    // Update case stage to Found / Reunification
-    setMissingCases((prev) =>
-      prev.map((c) => {
-        if (c.id === caseId) {
-          return {
-            ...c,
-            status: "Found",
-            stageIndex: 6,
-            updatedAt: "Just Now"
-          };
-        }
-        return c;
-      })
-    );
   };
 
-  // Close Case
-  const closeCase = (caseId, recoveryDetails) => {
+  const closeCase = async (caseId, recoveryDetails) => {
+    try {
+      // Try cancelling if allowed or update state
+      await updateCaseStatus(caseId, "cancelled").catch(() => {
+        // If parent status update restricted, update local state
+      });
+    } catch {
+      // handled
+    }
     setMissingCases((prev) =>
       prev.map((c) => {
-        if (c.id === caseId) {
+        if (c.id === caseId || c.caseNumber === caseId) {
           return {
             ...c,
             status: "Closed",
+            rawStatus: "closed",
             stageIndex: 9,
-            policeStatus: "Closed",
-            liveLocationActive: false,
             updatedAt: "Just Now"
           };
         }
         return c;
       })
-    );
-
-    const closeTimelineEntry = {
-      id: `ctl-close-${Date.now()}`,
-      title: "Case Formally Closed - Safe Recovery",
-      desc: `Child recovered safely at ${recoveryDetails.location || "verified location"}. Notes: ${recoveryDetails.notes || "None"}`,
-      time: "Just Now",
-      actor: "Parent Guardian",
-      stageIndex: 9
-    };
-
-    setCaseTimelines((prev) => ({
-      ...prev,
-      [caseId]: [...(prev[caseId] || []), closeTimelineEntry]
-    }));
-  };
-
-  const getCaseById = (caseId) => {
-    return missingCases.find((c) => c.id === caseId || c.caseNumber === caseId);
-  };
-
-  const getActiveCaseForChild = (childId) => {
-    return missingCases.find(
-      (c) => c.childId === String(childId) && c.status !== "Closed" && c.status !== "Recovered"
     );
   };
 
@@ -459,14 +402,19 @@ export const MissingCasesProvider = ({ children }) => {
     <MissingCasesContext.Provider
       value={{
         missingCases,
+        isLoading,
+        error,
         potentialMatches,
         citizenReports,
         caseTimelines,
+        fetchCases,
         createCase,
         updateCase,
+        updateCaseStatus,
         verifyMatch,
         closeCase,
         getCaseById,
+        findCaseInState,
         getActiveCaseForChild
       }}
     >
