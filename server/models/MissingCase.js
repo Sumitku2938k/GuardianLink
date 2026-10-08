@@ -79,6 +79,15 @@ const missingCaseSchema = new mongoose.Schema(
       default: "reported",
       index: true
     },
+    priority: {
+      type: String,
+      enum: {
+        values: ["low", "medium", "high", "critical"],
+        message: "Priority must be low, medium, high, or critical"
+      },
+      default: "high",
+      set: (val) => (val ? val.toLowerCase().trim() : "high")
+    },
     policeCaseNumber: {
       type: String,
       trim: true,
@@ -111,6 +120,11 @@ const missingCaseSchema = new mongoose.Schema(
   }
 );
 
+// Virtual: canonical caseNumber format
+missingCaseSchema.virtual("caseNumber").get(function () {
+  return this.policeCaseNumber || `MC-${this._id.toString().slice(-6).toUpperCase()}`;
+});
+
 // Targeted Compound Indexes for efficient querying
 missingCaseSchema.index({ childId: 1, status: 1 });
 missingCaseSchema.index({ "lastSeenLocation.city": 1, status: 1 });
@@ -129,6 +143,7 @@ missingCaseSchema.methods.toSafeObject = function () {
   const obj = this.toObject({ virtuals: true });
   delete obj.__v;
   obj.id = obj._id.toString();
+  obj.caseNumber = this.caseNumber;
   return obj;
 };
 
