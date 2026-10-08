@@ -45,6 +45,7 @@ export default function CaseDetails() {
 
   const {
     getCaseById,
+    findCaseInState,
     potentialMatches,
     citizenReports,
     caseTimelines,
@@ -52,12 +53,47 @@ export default function CaseDetails() {
     closeCase
   } = useMissingCases();
 
-  const caseData = getCaseById(caseId);
+  const [caseData, setCaseData] = useState(() => (findCaseInState ? findCaseInState(caseId) : null));
+  const [loading, setLoading] = useState(!caseData);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCurrentCase = async () => {
+      try {
+        const data = await getCaseById(caseId);
+        if (isMounted) {
+          setCaseData(data);
+        }
+      } catch (err) {
+        console.error("Error loading case:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCurrentCase();
+    return () => {
+      isMounted = false;
+    };
+  }, [caseId, getCaseById]);
 
   // Modal States
   const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
   const [activeMediaPreview, setActiveMediaPreview] = useState(null);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="space-y-4 text-center">
+          <div className="w-10 h-10 border-4 border-rose-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-gray-500 font-medium">Loading emergency case profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!caseData) {
     return (
@@ -71,9 +107,9 @@ export default function CaseDetails() {
     );
   }
 
-  const linkedMatches = potentialMatches.filter((m) => m.caseId === caseData.id);
-  const linkedCitizenReports = citizenReports.filter((r) => r.caseId === caseData.id);
-  const timelineEvents = caseTimelines[caseData.id] || [];
+  const linkedMatches = potentialMatches.filter((m) => m.caseId === caseData.id || m.caseId === caseData.caseNumber);
+  const linkedCitizenReports = citizenReports.filter((r) => r.caseId === caseData.id || r.caseId === caseData.caseNumber);
+  const timelineEvents = caseTimelines[caseData.id] || caseTimelines[caseData.caseNumber] || [];
 
   const handleDownloadSummary = () => {
     alert(`Downloading Case Summary PDF for ${caseData.caseNumber}...`);
