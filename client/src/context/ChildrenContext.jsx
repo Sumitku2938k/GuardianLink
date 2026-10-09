@@ -35,10 +35,10 @@ const normalizeChildForUi = (c) => {
   }
 
   const defaultPhoto =
-    "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80";
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E";
   const persistentPhoto = c.photoUrl || (Array.isArray(c.photos) && c.photos[0]) || "";
   const photo = persistentPhoto || c.photo || defaultPhoto;
-  const photos = Array.isArray(c.photos) && c.photos.length > 0 ? c.photos : (persistentPhoto ? [persistentPhoto] : [photo]);
+  const photos = persistentPhoto ? [persistentPhoto] : (c.photo ? [c.photo] : [defaultPhoto]);
 
   const uiStatus =
     c.status === "inactive"
@@ -218,6 +218,24 @@ export const ChildrenProvider = ({ children }) => {
     return childrenList.find((c) => c.id === childId || c._id === childId);
   };
 
+  const fetchChildById = async (childId) => {
+    if (!childId) return null;
+    const existing = childrenList.find((c) => c.id === childId || c._id === childId);
+    if (existing) return existing;
+
+    try {
+      const res = await api.get(`/api/children/${childId}`);
+      if (res.data && res.data.success && res.data.child) {
+        const normalized = normalizeChildForUi(res.data.child);
+        setChildrenList((prev) => [normalized, ...prev.filter((c) => c.id !== normalized.id)]);
+        return normalized;
+      }
+    } catch (err) {
+      console.warn("Could not fetch single child profile from API:", err.message);
+    }
+    return null;
+  };
+
   return (
     <ChildrenContext.Provider
       value={{
@@ -230,7 +248,8 @@ export const ChildrenProvider = ({ children }) => {
         updateChildPhoto,
         removeChildPhoto,
         archiveChild,
-        getChildById
+        getChildById,
+        fetchChildById
       }}
     >
       {children}

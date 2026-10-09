@@ -49,7 +49,7 @@ export const normalizeCaseForUi = (c) => {
   }
 
   const defaultPhoto =
-    "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80";
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E";
   const childPhoto =
     child.photoUrl || (Array.isArray(child.photos) && child.photos[0]) || c.childPhoto || defaultPhoto;
   const childGender = child.gender
@@ -150,34 +150,10 @@ export const MissingCasesProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // Potential Matches Data (Secondary UI compatibility)
-  const [potentialMatches, setPotentialMatches] = useState([
-    {
-      id: "pm-101",
-      caseId: "MC-2026-8821",
-      childId: "3",
-      matchPhoto: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      confidenceScore: "94.8%",
-      matchDate: "2026-08-08 16:10",
-      location: "Metro Station Exit 4B CCTV Camera #12",
-      verificationStatus: "Guardian Verification Required",
-      isVerified: false,
-      notes: "AI facial vector match triggered on public CCTV feed. High confidence match on eye-to-nose geometry."
-    }
-  ]);
+  const [potentialMatches, setPotentialMatches] = useState([]);
 
   // Citizen Sighting Reports Data
-  const [citizenReports, setCitizenReports] = useState([
-    {
-      id: "cr-501",
-      caseId: "MC-2026-8821",
-      reporterTag: "Citizen Reporter #482 (Verified)",
-      sightingTime: "2026-08-08 15:55",
-      location: "Outside Sector 14 Metro Station",
-      description: "Saw a child matching description wearing red backpack sitting near tea stall with police constable.",
-      photoPreview: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      verificationState: "Verified Sighting"
-    }
-  ]);
+  const [citizenReports, setCitizenReports] = useState([]);
 
   // Case Timelines Data
   const [caseTimelines, setCaseTimelines] = useState({});

@@ -8,8 +8,17 @@ import { useAuth } from "@/context/AuthContext";
 export const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const userDisplay = user
+    ? {
+        name: user.fullName || user.name || "Guardian",
+        email: user.email || "",
+        role: user.role === "parent" ? "Parent Guardian" : user.role || "Parent Guardian",
+        avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || user.name || "User")}&background=0D9488&color=fff`,
+      }
+    : undefined;
 
   const handleLogout = async () => {
     await logout();
@@ -68,6 +77,7 @@ export const DashboardLayout = () => {
         setActiveTab={handleTabChange}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
+        user={userDisplay}
         onLogout={handleLogout}
       />
 
@@ -78,7 +88,8 @@ export const DashboardLayout = () => {
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onLogout={handleLogout}
           onOpenNotifications={() => navigate("/parent/notifications")}
-          unreadCount={3}
+          user={userDisplay}
+          unreadCount={0}
         />
 
         {/* Dynamic Outlet for Nested Views */}
