@@ -79,7 +79,7 @@ export const ChildCard = ({ child, onArchive }) => {
         <div className="flex justify-between items-end -mt-12 mb-3">
           <div className="relative">
             <img
-              src={child.photo || "https://images.unsplash.com/photo-1543332164-6e82f355badc?w=400&auto=format&fit=crop&q=80"}
+              src={child.photo}
               alt={child.name}
               className="w-20 h-20 rounded-2xl object-cover ring-4 ring-white dark:ring-slate-900 shadow-lg group-hover:scale-105 transition-transform duration-300"
             />

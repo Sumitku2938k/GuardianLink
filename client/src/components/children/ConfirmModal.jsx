@@ -18,14 +18,17 @@ export const ConfirmModal = ({
   const [inputValue, setInputValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      onConfirm();
-      setIsSubmitting(false);
+    try {
+      await onConfirm();
       setInputValue("");
       onClose();
-    }, 1000);
+    } catch (err) {
+      console.error("Confirmation action failed:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isConfirmDisabled = requireInput && inputValue.trim().toLowerCase() !== requireInputValue.trim().toLowerCase();
