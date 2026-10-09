@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
@@ -39,12 +39,24 @@ const STEPS = [
 
 export default function ReportMissingCase() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { children } = useChildren();
   const { createCase, getActiveCaseForChild } = useMissingCases();
 
+  const preselectedChildId = searchParams.get("childId") || "";
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedChildId, setSelectedChildId] = useState("");
+  const [selectedChildId, setSelectedChildId] = useState(preselectedChildId);
   const [existingActiveCase, setExistingActiveCase] = useState(null);
+
+  useEffect(() => {
+    if (preselectedChildId) {
+      setSelectedChildId(preselectedChildId);
+      const activeCase = getActiveCaseForChild(preselectedChildId);
+      if (activeCase) {
+        setExistingActiveCase(activeCase);
+      }
+    }
+  }, [preselectedChildId, getActiveCaseForChild]);
 
   // Step 2: Last Seen State
   const [lastSeen, setLastSeen] = useState({

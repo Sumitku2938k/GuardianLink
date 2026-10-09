@@ -35,9 +35,40 @@ export default function ChildProfile() {
   const { childId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { getChildById, updateChild, updateChildPhoto, removeChildPhoto, archiveChild, isLoading } = useChildren();
+  const { children: childrenList, getChildById, fetchChildById, updateChild, updateChildPhoto, removeChildPhoto, archiveChild, isLoading: contextLoading } = useChildren();
 
-  const child = getChildById(childId);
+  const [child, setChild] = useState(() => (getChildById ? getChildById(childId) : null));
+  const [loading, setLoading] = useState(!child);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadProfile = async () => {
+      const existing = getChildById(childId);
+      if (existing) {
+        setChild(existing);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const fetched = await fetchChildById(childId);
+      if (isMounted) {
+        setChild(fetched);
+        setLoading(false);
+      }
+    };
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [childId, getChildById, fetchChildById]);
+
+  // Keep local child state synchronized when childrenList updates
+  useEffect(() => {
+    const existing = getChildById(childId);
+    if (existing) {
+      setChild(existing);
+    }
+  }, [childrenList, childId, getChildById]);
 
   // Tab State
   const [activeTab, setActiveTab] = useState("overview");
@@ -77,7 +108,7 @@ export default function ChildProfile() {
     }
   }, [searchParams]);
 
-  if (isLoading && !child) {
+  if (loading || (contextLoading && !child)) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
@@ -516,8 +547,8 @@ export default function ChildProfile() {
                 <Card className="p-6 sm:p-8 space-y-6">
                   <div className="pb-3 border-b border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">Facial Vector Library</h3>
-                      <p className="text-xs text-gray-500">Persistent photos stored and verified for biometric security matching.</p>
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">Photo & Biometric Reference</h3>
+                      <p className="text-xs text-gray-500">Canonical front-facing photo stored and verified for AI safety matching.</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
@@ -543,19 +574,47 @@ export default function ChildProfile() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {(child.photos || [child.photo]).map((url, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setActiveImage(url)}
-                        className="rounded-2xl border border-gray-200 dark:border-slate-800 bg-gray-50 dark:bg-slate-900 aspect-square overflow-hidden cursor-pointer relative group shadow-sm hover:shadow-md transition-all"
-                      >
-                        <img src={url} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
-                          View Image
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 p-6 rounded-2xl bg-gray-50/50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-800">
+                    <div
+                      onClick={() => setActiveImage(child.photoUrl || child.photo)}
+                      className="rounded-2xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 w-44 h-44 overflow-hidden cursor-pointer relative group shadow-md hover:shadow-lg transition-all shrink-0"
+                    >
+                      <img
+                        src={child.photoUrl || child.photo}
+                        alt="Canonical Reference Photo"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                        View Full Image
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 flex-1 text-center sm:text-left">
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold mb-1.5">
+                          <ShieldCheck className="w-4 h-4" /> Canonical Reference Enrolled
+                        </div>
+                        <h4 className="text-base font-bold text-gray-900 dark:text-white">Front / Recent Photo</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          This single photo serves as the authoritative source image for biometric feature analysis during missing alert investigations.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-gray-100 dark:border-slate-700/60">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block">Storage Status</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                            {child.hasPersistentPhoto ? "Cloudinary Persistent Storage" : "Local Mock / Avatar"}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-gray-100 dark:border-slate-700/60">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block">AI Vector Profile</span>
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5 block">
+                            {child.faceProfileId ? `Indexed (${child.faceProfileId})` : "Ready for Qdrant Indexing"}
+                          </span>
                         </div>
                       </div>
-                    ))}
+                    </div>
                   </div>
                 </Card>
               </motion.div>
