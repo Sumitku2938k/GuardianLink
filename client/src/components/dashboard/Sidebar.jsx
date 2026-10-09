@@ -18,9 +18,9 @@ import { Badge } from "@/components/ui/Badge";
 
 export const MENU_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "children", label: "My Children", icon: Users, badge: "2" },
-  { id: "missing", label: "Missing Cases", icon: AlertTriangle, badge: "Live", badgeVariant: "danger" },
-  { id: "notifications", label: "Notifications", icon: Bell, badge: "3", badgeVariant: "primary" },
+  { id: "children", label: "My Children", icon: Users },
+  { id: "missing", label: "Missing Cases", icon: AlertTriangle },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "settings", label: "Settings", icon: Settings },
   { id: "help", label: "Help & Support", icon: HelpCircle },
@@ -31,7 +31,7 @@ export const Sidebar = ({
   setActiveTab,
   isOpen,
   onClose,
-  user = { name: "John Doe", role: "Parent Guardian", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" },
+  user = { name: "Guardian", role: "Parent Guardian" },
   onLogout,
 }) => {
   const handleNavClick = (id) => {
@@ -136,7 +136,7 @@ export const Sidebar = ({
         <div className="flex items-center justify-between p-2 rounded-xl bg-slate-800/50 border border-slate-700/40">
           <div className="flex items-center gap-3 overflow-hidden">
             <img
-              src={user.avatar}
+              src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "User")}&background=0D9488&color=fff`}
               alt={user.name}
               className="w-10 h-10 rounded-full object-cover ring-2 ring-teal-500/30 shrink-0"
             />

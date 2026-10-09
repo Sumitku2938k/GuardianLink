@@ -18,10 +18,11 @@ import { Badge } from "@/components/ui/Badge";
 
 export const TopNavbar = ({
   onOpenMobileSidebar,
-  user = { name: "John Doe", email: "john.doe@example.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" },
+  user = { name: "Guardian", email: "" },
   onLogout,
   onOpenNotifications,
-  unreadCount = 3,
+  unreadCount = 0,
+  notifications = [],
 }) => {
   const [isDark, setIsDark] = useState(() => {
     return document.documentElement.classList.contains("dark");
@@ -50,28 +51,14 @@ export const TopNavbar = ({
     }
   }, []);
 
-  const sampleNotifications = [
+  const activeNotifs = notifications.length > 0 ? notifications : [
     {
       id: 1,
-      title: "Biometric Scan Completed",
-      desc: "Aarav's face recognition index updated.",
-      time: "10 mins ago",
+      title: "System Protection Online",
+      desc: "GuardianLink family monitoring active.",
+      time: "Just now",
       type: "info",
-    },
-    {
-      id: 2,
-      title: "Geofence Safe Zone Check",
-      desc: "Ananya arrived safely at Modern Academy School.",
-      time: "1 hour ago",
-      type: "success",
-    },
-    {
-      id: 3,
-      title: "Safety Tip Recommendation",
-      desc: "New cyber safety alert guidelines added.",
-      time: "3 hours ago",
-      type: "warning",
-    },
+    }
   ];
 
   return (
@@ -155,7 +142,7 @@ export const TopNavbar = ({
                 </div>
 
                 <div className="divide-y divide-gray-100 dark:divide-slate-800/60 max-h-80 overflow-y-auto">
-                  {sampleNotifications.map((n) => (
+                  {activeNotifs.map((n) => (
                     <div
                       key={n.id}
                       className="p-4 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
@@ -174,7 +161,7 @@ export const TopNavbar = ({
                         </div>
                         <div className="flex-1">
                           <h5 className="text-xs font-bold text-gray-900 dark:text-white">{n.title}</h5>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.desc}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.desc || n.message}</p>
                           <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
                             <Clock className="w-3 h-3" /> {n.time}
                           </span>
@@ -209,7 +196,7 @@ export const TopNavbar = ({
               className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             >
               <img
-                src={user.avatar}
+                src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || "User")}&background=0D9488&color=fff`}
                 alt={user.name}
                 className="w-9 h-9 rounded-full object-cover ring-2 ring-primary/30"
               />

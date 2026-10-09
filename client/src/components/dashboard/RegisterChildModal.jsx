@@ -32,8 +32,8 @@ export const RegisterChildModal = ({ isOpen, onClose, onRegisterSuccess }) => {
 
     try {
       const form = new FormData();
-      form.append("fullName", formData.name || "Aarav Sharma");
-      form.append("name", formData.name || "Aarav Sharma");
+      form.append("fullName", formData.name.trim());
+      form.append("name", formData.name.trim());
 
       const ageNum = parseInt(formData.age, 10) || 5;
       const approxDob = new Date();
