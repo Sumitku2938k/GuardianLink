@@ -1,38 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, ShieldAlert, CheckCircle, Info, Filter } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
 export const NotificationWidget = ({
-  notifications: initialNotifs = [
-    {
-      id: 1,
-      category: "alert",
-      title: "Geofence Exit Warning",
-      message: "Ananya exited school perimeter at 03:15 PM.",
-      time: "25m ago",
-      isRead: false,
-    },
-    {
-      id: 2,
-      category: "system",
-      title: "AI Face Engine Updated",
-      message: "Version 4.2 deep neural model deployed for faster spotting.",
-      time: "2h ago",
-      isRead: false,
-    },
-    {
-      id: 3,
-      category: "info",
-      title: "Safety Check-in Successful",
-      message: "Aarav verified via biometric scanner at sports club.",
-      time: "5h ago",
-      isRead: true,
-    },
-  ],
+  notifications: initialNotifs = [],
 }) => {
   const [filter, setFilter] = useState("all");
   const [notifs, setNotifs] = useState(initialNotifs);
+
+  useEffect(() => {
+    setNotifs(initialNotifs);
+  }, [initialNotifs]);
 
   const filteredNotifs = notifs.filter((n) => {
     if (filter === "all") return true;
@@ -86,49 +65,55 @@ export const NotificationWidget = ({
       </div>
 
       <div className="space-y-3">
-        {filteredNotifs.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => toggleRead(item.id)}
-            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-              !item.isRead
-                ? "bg-primary/5 dark:bg-slate-800/80 border-primary/20"
-                : "bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 opacity-75"
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className={`p-2 rounded-lg shrink-0 ${
-                  item.category === "alert"
-                    ? "bg-rose-500/10 text-rose-500"
-                    : item.category === "system"
-                    ? "bg-blue-500/10 text-blue-500"
-                    : "bg-teal-500/10 text-teal-500"
-                }`}
-              >
-                {item.category === "alert" ? (
-                  <ShieldAlert className="w-4 h-4" />
-                ) : item.category === "system" ? (
-                  <Info className="w-4 h-4" />
-                ) : (
-                  <CheckCircle className="w-4 h-4" />
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-                    {item.title}
-                  </h4>
-                  <span className="text-[10px] text-gray-400 font-medium">{item.time}</span>
+        {filteredNotifs.length === 0 ? (
+          <div className="p-6 text-center text-xs text-gray-500 bg-gray-50/50 dark:bg-slate-800/30 rounded-xl">
+            No safety notifications or alerts in this view.
+          </div>
+        ) : (
+          filteredNotifs.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => toggleRead(item.id)}
+              className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                !item.isRead
+                  ? "bg-primary/5 dark:bg-slate-800/80 border-primary/20"
+                  : "bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800 opacity-75"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 rounded-lg shrink-0 ${
+                    item.category === "alert"
+                      ? "bg-rose-500/10 text-rose-500"
+                      : item.category === "system"
+                      ? "bg-blue-500/10 text-blue-500"
+                      : "bg-teal-500/10 text-teal-500"
+                  }`}
+                >
+                  {item.category === "alert" ? (
+                    <ShieldAlert className="w-4 h-4" />
+                  ) : item.category === "system" ? (
+                    <Info className="w-4 h-4" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                  {item.message}
-                </p>
+
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+                      {item.title}
+                    </h4>
+                    <span className="text-[10px] text-gray-400 font-medium">{item.time}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                    {item.message}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </Card>
   );

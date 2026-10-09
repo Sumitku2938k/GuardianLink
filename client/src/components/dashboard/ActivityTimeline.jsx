@@ -3,40 +3,7 @@ import { CheckCircle2, ShieldCheck, RefreshCw, FileText, Clock, ChevronDown } fr
 import { Card } from "@/components/ui/Card";
 
 export const ActivityTimeline = ({
-  activities = [
-    {
-      id: 1,
-      title: "Child Registered",
-      desc: "Aarav Doe profile created with high-res biometric facial feature vectors.",
-      time: "Today, 09:30 AM",
-      icon: CheckCircle2,
-      status: "completed",
-    },
-    {
-      id: 2,
-      title: "Medical Information Updated",
-      desc: "Added emergency contact, allergy info, and blood group details (O+).",
-      time: "Yesterday, 04:15 PM",
-      icon: FileText,
-      status: "completed",
-    },
-    {
-      id: 3,
-      title: "AI Face Indexing Verified",
-      desc: "AI engine indexed 12 biometric landmarks across 5 lighting angles.",
-      time: "3 days ago",
-      icon: ShieldCheck,
-      status: "completed",
-    },
-    {
-      id: 4,
-      title: "No Active Alerts",
-      desc: "All children monitored continuously. All safe zone signals clear.",
-      time: "Just now",
-      icon: CheckCircle2,
-      status: "active",
-    },
-  ],
+  activities = [],
 }) => {
   return (
     <Card className="p-6">
@@ -56,7 +23,12 @@ export const ActivityTimeline = ({
       </div>
 
       <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200 dark:before:bg-slate-800">
-        {activities.map((item, idx) => {
+        {activities.length === 0 ? (
+          <div className="p-6 text-center text-xs text-gray-500 bg-gray-50/50 dark:bg-slate-800/30 rounded-xl">
+            No recent activity logged.
+          </div>
+        ) : (
+          activities.map((item, idx) => {
           const Icon = item.icon || CheckCircle2;
           const isLast = idx === activities.length - 1;
 
@@ -83,7 +55,7 @@ export const ActivityTimeline = ({
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </Card>
   );
