@@ -17,17 +17,35 @@ export const MapPlaceholder = ({
 
   const handleUseCurrentLocation = () => {
     setCurrentLocActive(true);
-    const updated = {
-      name: "Current GPS Location (28.6142° N, 77.2095° E), Sector 12",
-      lat: "28.6142",
-      lng: "77.2095"
-    };
-    setMapLoc(updated);
-    if (onSelectLocation) onSelectLocation(updated);
-
-    setTimeout(() => {
+    if (typeof navigator !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(4);
+          const lng = pos.coords.longitude.toFixed(4);
+          const updated = {
+            name: `Current Location (${lat}° N, ${lng}° E)`,
+            lat,
+            lng
+          };
+          setMapLoc(updated);
+          if (onSelectLocation) onSelectLocation(updated);
+          setCurrentLocActive(false);
+        },
+        () => {
+          const fallback = {
+            name: "GPS Location (28.6142° N, 77.2095° E)",
+            lat: "28.6142",
+            lng: "77.2095"
+          };
+          setMapLoc(fallback);
+          if (onSelectLocation) onSelectLocation(fallback);
+          setCurrentLocActive(false);
+        },
+        { timeout: 5000 }
+      );
+    } else {
       setCurrentLocActive(false);
-    }, 1500);
+    }
   };
 
   return (

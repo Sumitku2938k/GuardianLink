@@ -22,15 +22,17 @@ export const RecoveryConfirmationModal = ({ isOpen, onClose, caseData, onConfirm
     setStep(2);
   };
 
-  const handleFinalSubmit = (e) => {
+  const handleFinalSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    setTimeout(() => {
-      onConfirmClose(caseData.id, recoveryData);
-      setIsSubmitting(false);
+    try {
+      await onConfirmClose(caseData.id, recoveryData);
       onClose();
-    }, 1200);
+    } catch (err) {
+      console.error("Error closing case:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!caseData) return null;

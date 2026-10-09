@@ -6,12 +6,13 @@ import { Badge } from "@/components/ui/Badge";
 export const PotentialMatchCard = ({ match, onVerify }) => {
   const [isRequesting, setIsRequesting] = useState(false);
 
-  const handleVerifyRequest = () => {
+  const handleVerifyRequest = async () => {
     setIsRequesting(true);
-    setTimeout(() => {
-      onVerify(match.id);
+    try {
+      if (onVerify) await onVerify(match.id);
+    } finally {
       setIsRequesting(false);
-    }, 1000);
+    }
   };
 
   return (
