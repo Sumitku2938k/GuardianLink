@@ -38,6 +38,13 @@ export default function MyChildren() {
     if (fetchChildren) fetchChildren();
   };
 
+  const photoEnrolledCount = children.filter(
+    (c) => c.photoUrl && !c.photoUrl.includes("placeholder")
+  ).length;
+  const photoEnrolledPercentage = children.length > 0
+    ? `${Math.round((photoEnrolledCount / children.length) * 100)}%`
+    : "0%";
+
   // Filter & Sort Logic
   const filteredChildren = children
     .filter((c) => {
@@ -59,7 +66,6 @@ export default function MyChildren() {
         return b.name.localeCompare(a.name);
       }
       if (sortBy === "Recently Updated") {
-        // Just mock evaluation since updatedAt contains relative text
         return b.id.localeCompare(a.id);
       }
       // "Recently Added" (Default)
@@ -145,8 +151,8 @@ export default function MyChildren() {
 
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
             <div>
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-gray-400 block">AI Verified</span>
-              <h3 className="text-2xl font-black text-indigo-500 mt-1">100%</h3>
+              <span className="text-[10px] uppercase tracking-wider font-extrabold text-gray-400 block">Photos Enrolled</span>
+              <h3 className="text-2xl font-black text-indigo-500 mt-1">{photoEnrolledPercentage}</h3>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
               <Users className="w-5 h-5" />

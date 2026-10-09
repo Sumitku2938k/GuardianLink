@@ -16,6 +16,7 @@ import {
   Phone,
   FileText
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { useChildren } from "@/context/ChildrenContext";
 import { StepIndicator } from "@/components/children/StepIndicator";
 import { ChildPhotoUploader, FaceEnrollmentCard } from "@/components/children/ChildPhotoUploader";
@@ -34,6 +35,7 @@ const STEPS = [
 
 export default function AddChild() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { addChild } = useChildren();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -52,9 +54,9 @@ export default function AddChild() {
     languages: "Hindi, English"
   });
 
-  // Step 2: Photos & Identification
-  const [photos, setPhotos] = useState({});
-  const [photoFiles, setPhotoFiles] = useState({});
+  // Step 2: Photo & Identification (Single Canonical Reference)
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
   const [identification, setIdentification] = useState({
     distinctiveMarks: "",
     scars: "",
@@ -73,12 +75,12 @@ export default function AddChild() {
     medicalNotes: ""
   });
 
-  // Step 4: Emergency Contacts
+  // Step 4: Primary Account Guardian (Auto-filled from authenticated user session)
   const defaultGuardian = {
-    name: "John Doe",
-    relationship: "Father/Guardian",
-    phone: "+91 98765 43210",
-    email: "john.doe@example.com"
+    name: user?.name || "Registered Parent",
+    relationship: "Parent/Guardian",
+    phone: user?.phone || "Not specified",
+    email: user?.email || ""
   };
 
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -107,8 +109,8 @@ export default function AddChild() {
       if (!basicInfo.gender) newErrors.gender = "Gender is required";
     }
     if (step === 2) {
-      if (Object.keys(photos).length < 1) {
-        newErrors.photos = "Please upload at least one Front Face photograph.";
+      if (!photoFile && !photoPreview) {
+        newErrors.photos = "Please upload one clear front-facing photograph of the child.";
       }
     }
     if (step === 4) {
@@ -198,12 +200,24 @@ export default function AddChild() {
       formData.append("doctorName", medicalInfo.doctorName || "");
       formData.append("doctorContact", medicalInfo.doctorContact || "");
       formData.append("medicalNotes", medicalInfo.medicalNotes || "");
-      formData.append("emergencyContacts", JSON.stringify(emergencyContacts));
+      // Prepare full emergency contacts list with primary registered guardian included
+      const primaryGuardianContact = {
+        name: defaultGuardian.name,
+        relationship: defaultGuardian.relationship,
+        phone: defaultGuardian.phone,
+        isPrimary: true
+      };
 
-      // Append real image file for backend Multer & Cloudinary upload pipeline
-      const primaryPhotoFile = photoFiles.front || Object.values(photoFiles)[0];
-      if (primaryPhotoFile) {
-        formData.append("photo", primaryPhotoFile);
+      const finalEmergencyContacts = [
+        primaryGuardianContact,
+        ...emergencyContacts.filter((c) => c.phone !== primaryGuardianContact.phone)
+      ];
+
+      formData.append("emergencyContacts", JSON.stringify(finalEmergencyContacts));
+
+      // Append single real image file for backend Multer & Cloudinary upload pipeline
+      if (photoFile) {
+        formData.append("photo", photoFile);
       }
 
       const savedChild = await addChild(formData);
@@ -396,18 +410,19 @@ export default function AddChild() {
             >
               <Card className="p-6 sm:p-8 space-y-6">
                 <ChildPhotoUploader
-                  photos={photos}
-                  photoFiles={photoFiles}
-                  onChange={(p, f) => {
-                    setPhotos(p);
-                    if (f) setPhotoFiles(f);
+                  photoFile={photoFile}
+                  photoPreview={photoPreview}
+                  onChange={({ photo, photoPreview }) => {
+                    setPhotoFile(photo);
+                    setPhotoPreview(photoPreview);
                     if (errors.photos) setErrors({ ...errors, photos: null });
                   }}
                 />
                 {errors.photos && <p className="text-xs text-rose-500 font-semibold">{errors.photos}</p>}
 
                 <FaceEnrollmentCard
-                  photos={photos}
+                  hasPhoto={Boolean(photoFile || photoPreview)}
+                  photoPreview={photoPreview}
                   enrollmentStatus={enrollmentStatus}
                   setEnrollmentStatus={setEnrollmentStatus}
                 />
@@ -726,19 +741,28 @@ export default function AddChild() {
                 {/* Photos Review */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-center border-b pb-1">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase">Photos & Biometrics</h3>
+                    <h3 className="text-xs font-bold text-gray-400 uppercase">Photo & Biometric Reference</h3>
                     <button onClick={() => setCurrentStep(2)} className="text-[11px] text-primary font-bold hover:underline">
                       Edit
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-3">
-                    {Object.entries(photos).map(([key, url]) => (
-                      <div key={key} className="relative text-center">
-                        <img src={url} alt={key} className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-100 dark:ring-slate-800" />
-                        <span className="text-[9px] text-gray-400 capitalize block mt-1">{key}</span>
+                  {photoPreview ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={photoPreview}
+                        alt="Front / Recent Photo"
+                        className="w-14 h-14 rounded-xl object-cover ring-2 ring-emerald-500/20 shadow-sm"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 dark:text-white block">Front / Recent Photo</span>
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                          <CheckCircle className="w-3 h-3" /> Ready for Cloudinary & AI vector indexing
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-amber-500 font-medium">No photo selected</div>
+                  )}
                 </div>
 
                 {/* Identification Marks Review */}
@@ -798,9 +822,25 @@ export default function AddChild() {
                     </button>
                   </div>
                   <div className="space-y-2">
+                    <div className="text-xs flex items-center justify-between p-2.5 rounded-xl bg-primary/5 dark:bg-slate-800/60 border border-primary/20 dark:border-slate-700">
+                      <div>
+                        <span className="font-bold text-gray-900 dark:text-white block">
+                          {defaultGuardian.name}
+                        </span>
+                        <span className="text-[10px] text-primary font-semibold">
+                          Primary Account Guardian ({defaultGuardian.relationship})
+                        </span>
+                      </div>
+                      <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {defaultGuardian.phone}
+                      </span>
+                    </div>
                     {emergencyContacts.map((c) => (
-                      <div key={c.id} className="text-xs flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-slate-800/40">
-                        <span className="font-semibold text-gray-900 dark:text-white">{c.name} ({c.relationship})</span>
+                      <div key={c.id} className="text-xs flex items-center justify-between p-2 rounded-xl bg-gray-50 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-800">
+                        <div>
+                          <span className="font-semibold text-gray-900 dark:text-white">{c.name}</span>
+                          <span className="text-[10px] text-gray-400 ml-1.5">({c.relationship})</span>
+                        </div>
                         <span className="font-mono text-gray-500">{c.phone}</span>
                       </div>
                     ))}
@@ -891,7 +931,7 @@ export default function AddChild() {
           <div className="flex justify-between items-center pt-6 mt-4 border-t border-gray-100 dark:border-slate-800">
             {currentStep > 1 ? (
               <Button
-                onClick={handlePrevStep || handlePrev}
+                onClick={handlePrev}
                 variant="outline"
                 leftIcon={ArrowLeft}
                 isDisabled={isSubmitting}

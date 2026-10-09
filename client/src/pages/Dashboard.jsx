@@ -24,7 +24,9 @@ import {
 } from "lucide-react";
 
 // Context
+import { useAuth } from "@/context/AuthContext";
 import { useChildren } from "@/context/ChildrenContext";
+import { useMissingCases } from "@/context/MissingCasesContext";
 
 // Components
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -46,12 +48,14 @@ import { EmptyState } from "@/components/ui/EmptyState";
 export default function Dashboard({ defaultTab }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   
   // Tab state derived from URL query parameters, defaultTab prop, or fallback
   const activeTab = searchParams.get("tab") || defaultTab || "dashboard";
 
-  // Consume Centralized Children State
+  // Consume Centralized State
   const { children: childrenList, addChild: handleRegisterSuccess } = useChildren();
+  const { missingCases } = useMissingCases();
 
   // Modal States
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -60,13 +64,11 @@ export default function Dashboard({ defaultTab }) {
   const [selectedChild, setSelectedChild] = useState(null);
 
   const openViewProfile = (child) => {
-    setSelectedChild(child);
-    setIsChildDetailOpen(true);
+    navigate(`/parent/children/${child.id}`);
   };
 
   const openReportEmergency = (child) => {
-    setSelectedChild(child || childrenList[0]);
-    setIsReportMissingOpen(true);
+    navigate(`/parent/missing-cases/new${child?.id ? `?childId=${child.id}` : ""}`);
   };
 
   const handleTabChange = (tabId) => {
@@ -77,9 +79,65 @@ export default function Dashboard({ defaultTab }) {
     } else if (tabId === "missing") {
       navigate("/parent/missing-cases");
     } else {
-      navigate(`/parent/${tabId}`);
+      navigate(`/dashboard?tab=${tabId}`);
     }
   };
+
+  const activeCases = missingCases.filter(
+    (c) => c.status !== "Closed" && c.status !== "Recovered" && c.status !== "Cancelled"
+  );
+  const activeCasesCount = activeCases.length;
+  const resolvedCasesCount = missingCases.filter(
+    (c) => c.status === "Closed" || c.status === "Recovered"
+  ).length;
+
+  // Derive dynamic activities from real data
+  const dynamicActivities = [];
+  missingCases.forEach((c) => {
+    dynamicActivities.push({
+      id: `case-${c.id}`,
+      title: `Missing Report: ${c.childName}`,
+      desc: `Case #${c.caseNumber} registered at ${c.lastSeenLocation}. Status: ${c.status}.`,
+      time: c.createdAt || "Recent",
+      icon: AlertTriangle,
+      status: c.status === "Active" ? "active" : "completed",
+    });
+  });
+  childrenList.forEach((child) => {
+    dynamicActivities.push({
+      id: `child-${child.id}`,
+      title: "Child Profile Registered",
+      desc: `${child.name} enrolled in GuardianLink family protection system.`,
+      time: child.createdAt ? new Date(child.createdAt).toLocaleDateString() : "Active",
+      icon: CheckCircle2,
+      status: "completed",
+    });
+  });
+
+  // Derive dynamic notifications from real data
+  const dynamicNotifications = [];
+  activeCases.forEach((c) => {
+    dynamicNotifications.push({
+      id: `notif-case-${c.id}`,
+      category: "alert",
+      title: "Active Missing Alert",
+      message: `Emergency case #${c.caseNumber} for ${c.childName} is currently active.`,
+      time: c.createdAt || "Recent",
+      isRead: false,
+    });
+  });
+  childrenList.forEach((child) => {
+    if (child.photoUrl && !child.photoUrl.includes("placeholder")) {
+      dynamicNotifications.push({
+        id: `notif-photo-${child.id}`,
+        category: "system",
+        title: "Photo Record Enrolled",
+        message: `Biometric photo on file for ${child.name}.`,
+        time: child.updatedAt || "Recent",
+        isRead: true,
+      });
+    }
+  });
 
   return (
     <div className="space-y-8">
@@ -103,17 +161,20 @@ export default function Dashboard({ defaultTab }) {
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
-                  Welcome back, John!
+                  Welcome back, {user?.fullName || user?.name || "Guardian"}!
                 </h1>
                 <p className="text-sm text-slate-300 max-w-lg leading-relaxed">
-                  Protecting your family starts here. {childrenList.length} children are actively monitored with zero active emergency alerts across your network.
+                  Protecting your family starts here. {childrenList.length} children registered.{" "}
+                  {activeCasesCount === 0
+                    ? "Zero active emergency alerts across your network."
+                    : `${activeCasesCount} emergency alert(s) currently active.`}
                 </p>
               </div>
 
               {/* Quick Action Banner Buttons */}
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
                 <Button
-                  onClick={() => setIsRegisterModalOpen(true)}
+                  onClick={() => navigate("/parent/children/add")}
                   variant="glass"
                   size="md"
                   leftIcon={Plus}
@@ -123,7 +184,7 @@ export default function Dashboard({ defaultTab }) {
                 </Button>
 
                 <Button
-                  onClick={() => openReportEmergency()}
+                  onClick={() => navigate("/parent/missing-cases/new")}
                   variant="destructive"
                   size="md"
                   leftIcon={AlertTriangle}
@@ -143,34 +204,34 @@ export default function Dashboard({ defaultTab }) {
               subtitle="Active Safety Profiles"
               icon={Users}
               trend="up"
-              trendValue="+100%"
+              trendValue={childrenList.length > 0 ? `${childrenList.length} Enrolled` : "None"}
               colorScheme="blue"
             />
 
             <StatCard
               title="Active Missing Cases"
-              value="0"
-              subtitle="System Safe & Clean"
+              value={activeCasesCount}
+              subtitle={activeCasesCount === 0 ? "System Safe & Clean" : "Incident Active"}
               icon={ShieldCheck}
               trend="up"
-              trendValue="100% Safe"
+              trendValue={activeCasesCount === 0 ? "100% Safe" : `${activeCasesCount} Active`}
               colorScheme="teal"
             />
 
             <StatCard
-              title="Found Reports"
-              value="1,482"
-              subtitle="Community Wide Matches"
+              title="Resolved Cases"
+              value={resolvedCasesCount}
+              subtitle="Safe Family Closures"
               icon={CheckCircle2}
               trend="up"
-              trendValue="+12 today"
+              trendValue={resolvedCasesCount > 0 ? `${resolvedCasesCount} Closed` : "0"}
               colorScheme="amber"
             />
 
             <StatCard
               title="Notifications"
-              value="3"
-              subtitle="Unread Safety Logs"
+              value={dynamicNotifications.length}
+              subtitle="Safety Log Updates"
               icon={Bell}
               colorScheme="rose"
             />
@@ -213,7 +274,7 @@ export default function Dashboard({ defaultTab }) {
                       Register your child's profile to enable AI safety monitoring and emergency response.
                     </p>
                     <Button
-                      onClick={() => navigate("/parent/add-child")}
+                      onClick={() => navigate("/parent/children/add")}
                       variant="primary"
                       size="sm"
                       className="mt-4"
@@ -241,7 +302,7 @@ export default function Dashboard({ defaultTab }) {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <Card
-                    onClick={() => setIsRegisterModalOpen(true)}
+                    onClick={() => navigate("/parent/children/add")}
                     className="p-4 text-center hover:border-primary/40 transition-colors cursor-pointer group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
@@ -254,7 +315,7 @@ export default function Dashboard({ defaultTab }) {
                   </Card>
 
                   <Card
-                    onClick={() => openReportEmergency()}
+                    onClick={() => navigate("/parent/missing-cases/new")}
                     className="p-4 text-center hover:border-rose-500/40 transition-colors cursor-pointer group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
@@ -298,7 +359,7 @@ export default function Dashboard({ defaultTab }) {
             {/* Right Column Widgets (4 cols) */}
             <div className="lg:col-span-4 space-y-6">
               {/* Activity Timeline Card */}
-              <ActivityTimeline />
+              <ActivityTimeline activities={dynamicActivities} />
 
               {/* Safety Tips Widget */}
               <SafetyTipsWidget />
@@ -307,7 +368,7 @@ export default function Dashboard({ defaultTab }) {
 
           {/* Notification Widget full section */}
           <div className="pt-4">
-            <NotificationWidget />
+            <NotificationWidget notifications={dynamicNotifications} />
           </div>
         </motion.div>
       )}
@@ -375,7 +436,7 @@ export default function Dashboard({ defaultTab }) {
             </p>
           </div>
 
-          <NotificationWidget />
+          <NotificationWidget notifications={dynamicNotifications} />
         </motion.div>
       )}
 
@@ -395,7 +456,7 @@ export default function Dashboard({ defaultTab }) {
             </p>
           </div>
 
-          <ActivityTimeline />
+          <ActivityTimeline activities={dynamicActivities} />
         </motion.div>
       )}
 
