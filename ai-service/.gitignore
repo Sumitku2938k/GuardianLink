@@ -1,0 +1,96 @@
+# ==============================================================================
+# GuardianLink AI Microservice — .gitignore
+# ==============================================================================
+
+# 1. Environment Variables & Secrets (CRITICAL: Never commit real credentials)
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# 2. Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# 3. Python Bytecode, Compilations & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 4. Deep Learning Models & Heavy Biometric Weights
+# Large ONNX models (~340MB buffalo_l weights: w600k_r50.onnx, det_10g.onnx, etc.)
+models/
+weights/
+*.onnx
+*.onnx.extra
+.insightface/
+insightface_models/
+.cache/
+
+# 5. Local Vector Database Files & Exclusive Locks
+# Qdrant local embedded storage, locks, and catalog dumps
+qdrant_data/
+storage/
+*.lock
+meta.json
+
+# 6. Testing, Benchmarking & Coverage Artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.tox/
+
+# 7. Logs & Runtime Debug Dumps
+*.log
+logs/
+*.pid
+
+# 8. Temporary Image Files & Processing Scratch Dumps
+temp/
+tmp/
+uploads/
+scratch/
+debug/
+*.tmp
+# Keep reference test asset safe
+!tests/assets/test.png
+
+# 9. IDE, Code Editors & OS System Files
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 10. Test Images
+tests/assets/*

@@ -1,0 +1,25 @@
+# GuardianLink AI Microservice — Python Dependencies
+# Cleaned and minimized dependency set for Phase 6.2+
+# Excludes redundant MongoDB, Cloudinary, Argon2, and Matplotlib packages
+
+# FastAPI Core & ASGI Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+
+# Numerical & Computer Vision
+numpy>=1.26.0
+opencv-python-headless>=4.9.0
+
+# Deep Learning Facial Recognition (CPU Execution Provider)
+insightface>=0.7.3
+onnxruntime>=1.17.0
+
+# Vector Database Client
+qdrant-client>=1.9.0
+
+# Testing & Development
+pytest>=8.0.0
+httpx>=0.27.0
