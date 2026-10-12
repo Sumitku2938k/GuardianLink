@@ -35,6 +35,12 @@ class Settings(BaseSettings):
         default="missing_person_faces",
         description="Target Qdrant collection name for child facial embeddings",
     )
+    QDRANT_TIMEOUT_SECONDS: float = Field(
+        default=10.0,
+        ge=1.0,
+        le=60.0,
+        description="Network timeout in seconds for Qdrant client operations",
+    )
 
     # Biometric Model Configuration
     MODEL_NAME: str = Field(

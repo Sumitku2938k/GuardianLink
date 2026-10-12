@@ -18,6 +18,14 @@ from app.engine.face_engine import (
     InvalidEmbeddingError,
     FaceEngineError,
 )
+from app.vector.client import close_qdrant_client
+from app.vector.exceptions import (
+    VectorStoreError,
+    QdrantConnectionError,
+    IncompatibleCollectionError,
+    InvalidVectorError,
+    InvalidChildIdError,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +51,7 @@ async def lifespan(app: FastAPI):
     logger.info("==================================================")
     yield
     logger.info("🛡️ GuardianLink AI Microservice Shutting Down")
+    close_qdrant_client()
 
 
 def create_app() -> FastAPI:
@@ -87,6 +96,36 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": str(exc), "code": "INVALID_EMBEDDING"},
+        )
+
+    @app.exception_handler(InvalidVectorError)
+    async def invalid_vector_handler(request: Request, exc: InvalidVectorError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": str(exc), "code": "INVALID_VECTOR"},
+        )
+
+    @app.exception_handler(InvalidChildIdError)
+    async def invalid_child_id_handler(request: Request, exc: InvalidChildIdError):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": str(exc), "code": "INVALID_CHILD_ID"},
+        )
+
+    @app.exception_handler(IncompatibleCollectionError)
+    async def incompatible_collection_handler(request: Request, exc: IncompatibleCollectionError):
+        logger.error("Incompatible collection error: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": str(exc), "code": "INCOMPATIBLE_COLLECTION"},
+        )
+
+    @app.exception_handler(QdrantConnectionError)
+    async def qdrant_connection_handler(request: Request, exc: QdrantConnectionError):
+        logger.error("Qdrant connection error: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": f"Vector database unavailable: {exc}", "code": "VECTOR_DB_UNAVAILABLE"},
         )
 
     @app.exception_handler(FaceEngineError)
