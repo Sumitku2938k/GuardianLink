@@ -15,6 +15,7 @@ from app.engine.face_engine import (
     NoFaceDetectedError,
     MultipleFacesDetectedError,
     ImageDecodeError,
+    InvalidEmbeddingError,
     FaceEngineError,
 )
 
@@ -79,6 +80,13 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"detail": str(exc), "code": "IMAGE_DECODE_FAILED"},
+        )
+
+    @app.exception_handler(InvalidEmbeddingError)
+    async def invalid_embedding_handler(request: Request, exc: InvalidEmbeddingError):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": str(exc), "code": "INVALID_EMBEDDING"},
         )
 
     @app.exception_handler(FaceEngineError)
