@@ -1,9 +1,10 @@
 """
-Unified InsightFace model engine singleton.
+Unified InsightFace model engine singleton for GuardianLink AI Microservice.
 Eliminates duplicate model loading across detection and embedding modules.
 Ensures lazy loading so importing modules does not incur startup latency or download models during test suites.
 """
 
+import os
 import threading
 import logging
 from typing import Optional, Any
@@ -34,6 +35,11 @@ class ImageDecodeError(FaceEngineError):
 
 class ModelNotLoadedError(FaceEngineError):
     """Raised when inference is attempted but the deep learning model failed to load."""
+    pass
+
+
+class InvalidEmbeddingError(FaceEngineError):
+    """Raised when an extracted embedding vector fails numerical, shape, or norm validation."""
     pass
 
 
@@ -72,10 +78,14 @@ class FaceEngine:
         """Returns True if the InsightFace model is active in memory."""
         return self._is_loaded and self._app is not None
 
-    def load_model(self) -> Any:
+    def load_model(self, root: Optional[str] = None) -> Any:
         """
         Initializes the InsightFace FaceAnalysis pipeline using CPUExecutionProvider.
         Safe for concurrent callers; initializes exactly once.
+
+        Args:
+            root: Optional custom path for model weights. Defaults to settings.INSIGHTFACE_HOME
+                  or the user's standard '~/.insightface' directory.
         """
         if self._is_loaded and self._app is not None:
             return self._app
@@ -87,16 +97,19 @@ class FaceEngine:
             try:
                 from insightface.app import FaceAnalysis
 
+                model_root = root or settings.INSIGHTFACE_HOME or os.path.expanduser("~/.insightface")
+
                 logger.info(
-                    "Initializing InsightFace FaceAnalysis suite (model pack: %s, det_size: %s)",
+                    "Initializing InsightFace FaceAnalysis suite (model pack: %s, det_size: %s, root: %s)",
                     settings.MODEL_NAME,
                     settings.DETECTION_SIZE,
+                    model_root,
                 )
 
                 app = FaceAnalysis(
                     name=settings.MODEL_NAME,
                     providers=["CPUExecutionProvider"],
-                    root=settings.INSIGHTFACE_HOME or None,
+                    root=model_root,
                 )
 
                 app.prepare(
