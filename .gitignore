@@ -1,0 +1,38 @@
+# ==============================================================================
+# GuardianLink Root — Git Ignore Rules
+# ==============================================================================
+
+# Secrets & Environment Configurations
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# Dependency directories
+node_modules/
+.venv/
+venv/
+env/
+
+# OS and Editor metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Python byte-code & build caches
+__pycache__/
+*.py[cod]
+*$py.class
+build/
+dist/
+.pytest_cache/
+.coverage
+
+# Logs
+*.log
+logs/

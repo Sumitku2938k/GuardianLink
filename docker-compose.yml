@@ -88,6 +88,44 @@ services:
       - "127.0.0.1:6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e \"GET /healthz HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && cat <&3 | grep -q \"healthz check passed\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # 7. FastAPI AI Microservice Container (Phase 6.5 / 6.6)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: guardianlink-ai-service
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: 8000
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:-dev_internal_secret_change_in_production}
+      QDRANT_URL: http://qdrant:6333
+      COLLECTION_NAME: missing_person_faces
+      QDRANT_TIMEOUT_SECONDS: 10.0
+      FACE_MATCH_THRESHOLD: 0.60
+      MAX_UPLOAD_SIZE_BYTES: 10485760
+      MODEL_NAME: buffalo_l
+      INSIGHTFACE_HOME: /root/.insightface
+    volumes:
+      - ${INSIGHTFACE_CACHE_DIR:-./ai-service/models}:/root/.insightface/models:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   mongo_data:

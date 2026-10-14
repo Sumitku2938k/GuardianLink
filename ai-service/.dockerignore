@@ -1,0 +1,52 @@
+# ==============================================================================
+# GuardianLink AI Microservice — Docker Build Ignore Rules
+# ==============================================================================
+
+# Git metadata
+.git/
+.gitignore
+
+# Virtual environments & local Python caches
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Model files (mounted via volume at container runtime to avoid layer bloat)
+models/
+weights/
+*.onnx
+
+# Testing caches & coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local databases and locks
+qdrant_data/
+storage/
+*.lock
+
+# Temporary and log files
+logs/
+*.log
+temp/
+tmp/
+scratch/
+debug/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
