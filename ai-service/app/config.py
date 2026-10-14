@@ -64,6 +64,13 @@ class Settings(BaseSettings):
         description="Minimum cosine similarity required to flag a candidate potential match",
     )
 
+    # Safe Upload Limits
+    MAX_UPLOAD_SIZE_BYTES: int = Field(
+        default=10 * 1024 * 1024,  # 10 MB
+        ge=1024,
+        description="Maximum allowed image upload size in bytes (default: 10 MB)",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
