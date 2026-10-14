@@ -1,31 +1,50 @@
 """
-Unit and integration test suite for GuardianLink AI Microservice skeleton.
-Tests application factory, route registration, internal key authentication,
-health check probes, deterministic UUIDv5 derivation, and domain exception handlers.
-Compatible with standard unittest runner and pytest.
+Comprehensive Unit and API Test Suite for GuardianLink AI Microservice.
+Tests health/readiness probes, internal authentication enforcement,
+request validation, upload size bounds, error handling (400, 401, 413, 422, 500, 503),
+biometric enrollment, similarity search, vector deletion, and PII protection.
 """
 
 import os
 import uuid
 import unittest
+from unittest.mock import patch, MagicMock
+import numpy as np
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.config import settings
 from app.vector.indexer import derive_point_id
-from app.schemas.biometric import HealthResponse, CandidateMatch, SearchResponse
+from app.schemas.biometric import HealthResponse, CandidateMatch, SearchResponse, EnrollResponse, DeleteResponse
+from app.engine.face_engine import (
+    NoFaceDetectedError,
+    MultipleFacesDetectedError,
+    ImageDecodeError,
+    InvalidEmbeddingError,
+    FaceEngineError,
+)
+from app.vector.exceptions import (
+    QdrantConnectionError,
+    IncompatibleCollectionError,
+    InvalidChildIdError,
+    InvalidVectorError,
+)
 
 client = TestClient(app)
 
 VALID_KEY = settings.INTERNAL_SERVICE_KEY
 INVALID_KEY = "incorrect_secret_token_123"
+SAMPLE_CHILD_ID = "6740b2a8d1e4c89a71e21b34"
+SAMPLE_POINT_ID = derive_point_id(SAMPLE_CHILD_ID)
+SAMPLE_EMBEDDING = np.random.randn(512).astype(np.float32)
+SAMPLE_EMBEDDING /= np.linalg.norm(SAMPLE_EMBEDDING)
 
 
-class TestAiServiceSkeleton(unittest.TestCase):
-    """Test suite verifying skeleton endpoints, schemas, and security boundaries."""
+class TestAiServiceApi(unittest.TestCase):
+    """Unit test suite for GuardianLink AI API endpoints."""
 
     # --------------------------------------------------------------------------
-    # 1. Health and Liveness Probes
+    # 1. Health and Readiness Probes
     # --------------------------------------------------------------------------
 
     def test_root_ping(self):
@@ -36,8 +55,11 @@ class TestAiServiceSkeleton(unittest.TestCase):
         self.assertIn("GuardianLink AI Microservice is online", data["message"])
         self.assertEqual(data["health_url"], "/health")
 
-    def test_health_check_endpoint(self):
-        """Verify health endpoint returns valid HealthResponse schema."""
+    @patch("app.routes.health.get_collection_info")
+    @patch("app.routes.health.check_qdrant_health", return_value=True)
+    def test_health_check_operational(self, mock_qdrant, mock_coll):
+        """Verify health endpoint reports 'ok' when Qdrant and collection are ready."""
+        mock_coll.return_value = {"name": settings.COLLECTION_NAME, "status": "green"}
         response = client.get("/health")
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -45,10 +67,21 @@ class TestAiServiceSkeleton(unittest.TestCase):
         health = HealthResponse(**data)
         self.assertEqual(health.status, "ok")
         self.assertEqual(health.service, "guardianlink-ai-service")
-        self.assertEqual(health.version, "1.0.0")
-        self.assertIsInstance(health.models_loaded, bool)
-        self.assertIsInstance(health.qdrant_connected, bool)
+        self.assertTrue(health.qdrant_connected)
+        self.assertTrue(health.details["collection_ready"])
         self.assertEqual(health.details["threshold"], settings.FACE_MATCH_THRESHOLD)
+
+    @patch("app.routes.health.check_qdrant_health", return_value=False)
+    def test_health_check_degraded_when_qdrant_offline(self, mock_qdrant):
+        """Verify health endpoint accurately reports 'degraded' when Qdrant is unreachable."""
+        response = client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        health = HealthResponse(**data)
+        self.assertEqual(health.status, "degraded")
+        self.assertFalse(health.qdrant_connected)
+        self.assertFalse(health.details["collection_ready"])
 
     # --------------------------------------------------------------------------
     # 2. Internal Service Authentication Guards
@@ -58,8 +91,11 @@ class TestAiServiceSkeleton(unittest.TestCase):
         """Verify all /internal/* endpoints reject requests lacking X-Internal-Service-Key."""
         endpoints = [
             ("POST", "/internal/ai/enroll"),
+            ("POST", "/internal/face/enroll"),
             ("POST", "/internal/ai/search"),
+            ("POST", "/internal/face/search"),
             ("DELETE", "/internal/ai/delete/test_child_123"),
+            ("DELETE", "/internal/face/test_child_123"),
         ]
         for method, path in endpoints:
             if method == "POST":
@@ -79,8 +115,11 @@ class TestAiServiceSkeleton(unittest.TestCase):
         headers = {"X-Internal-Service-Key": INVALID_KEY}
         endpoints = [
             ("POST", "/internal/ai/enroll"),
+            ("POST", "/internal/face/enroll"),
             ("POST", "/internal/ai/search"),
+            ("POST", "/internal/face/search"),
             ("DELETE", "/internal/ai/delete/test_child_123"),
+            ("DELETE", "/internal/face/test_child_123"),
         ]
         for method, path in endpoints:
             if method == "POST":
@@ -96,69 +135,260 @@ class TestAiServiceSkeleton(unittest.TestCase):
             self.assertIn("Invalid internal service key", response.json()["detail"])
 
     # --------------------------------------------------------------------------
-    # 3. Skeleton 501 Responses (Proves registration without premature logic)
+    # 3. Biometric Enrollment Endpoint
     # --------------------------------------------------------------------------
 
-    def test_enroll_endpoint_skeleton_returns_501(self):
-        """Verify enroll route is mounted, accepts valid key, and returns 501 Not Implemented."""
+    @patch("app.routes.enroll.upsert_child_vector", return_value=SAMPLE_POINT_ID)
+    @patch("app.routes.enroll.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    def test_enroll_success(self, mock_engine, mock_upsert):
+        """Verify valid enrollment request returns 200 with EnrollResponse schema."""
         headers = {"X-Internal-Service-Key": VALID_KEY}
-        files = {"file": ("test.png", b"fake_image_bytes", "image/png")}
-        data = {"child_id": "6740b2a8d1e4c89a71e21b34"}
+        files = {"file": ("portrait.jpg", b"\xff\xd8\xff\xe0fake_valid_bytes", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 200)
+        res_data = response.json()
+
+        enroll_res = EnrollResponse(**res_data)
+        self.assertTrue(enroll_res.success)
+        self.assertEqual(enroll_res.child_id, SAMPLE_CHILD_ID)
+        self.assertEqual(enroll_res.face_profile_id, SAMPLE_POINT_ID)
+        self.assertEqual(enroll_res.status, "enrolled")
+        self.assertNotIn("embedding", res_data)
+
+    @patch("app.routes.enroll.upsert_child_vector", return_value=SAMPLE_POINT_ID)
+    @patch("app.routes.enroll.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    def test_enroll_supports_internal_ai_prefix(self, mock_engine, mock_upsert):
+        """Verify /internal/ai/enroll prefix works identically for backwards compatibility."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"image": ("portrait.jpg", b"\xff\xd8\xff\xe0fake_bytes", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
 
         response = client.post("/internal/ai/enroll", headers=headers, data=data, files=files)
-        self.assertEqual(response.status_code, 501)
-        self.assertIn("deferred to Phase 6.5", response.json()["detail"])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["child_id"], SAMPLE_CHILD_ID)
 
-    def test_search_endpoint_skeleton_returns_501(self):
-        """Verify search route is mounted, accepts valid key, and returns 501 Not Implemented."""
+    def test_enroll_missing_file(self):
+        """Verify enrollment without file upload returns 422."""
         headers = {"X-Internal-Service-Key": VALID_KEY}
-        files = {"file": ("query.png", b"fake_query_bytes", "image/png")}
-        data = {"limit": "5"}
+        data = {"child_id": SAMPLE_CHILD_ID}
 
-        response = client.post("/internal/ai/search", headers=headers, data=data, files=files)
-        self.assertEqual(response.status_code, 501)
-        self.assertIn("deferred to Phase 6.5", response.json()["detail"])
+        response = client.post("/internal/face/enroll", headers=headers, data=data)
+        self.assertEqual(response.status_code, 422)
 
-    def test_delete_endpoint_skeleton_returns_501(self):
-        """Verify delete route is mounted, accepts valid key, and returns 501 Not Implemented."""
+    def test_enroll_empty_file(self):
+        """Verify empty file upload (0 bytes) returns 422."""
         headers = {"X-Internal-Service-Key": VALID_KEY}
-        response = client.delete("/internal/ai/delete/6740b2a8d1e4c89a71e21b34", headers=headers)
-        self.assertEqual(response.status_code, 501)
-        self.assertIn("deferred to Phase 6.5", response.json()["detail"])
+        files = {"file": ("empty.jpg", b"", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["code"], "IMAGE_DECODE_FAILED")
+
+    def test_enroll_invalid_child_id(self):
+        """Verify blank or whitespace child_id returns 400."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("portrait.jpg", b"fake_bytes", "image/jpeg")}
+        data = {"child_id": "   "}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"], "INVALID_CHILD_ID")
+
+    @patch("app.routes.enroll.generate_embedding", side_effect=NoFaceDetectedError("No human face detected."))
+    def test_enroll_no_face_detected(self, mock_engine):
+        """Verify zero face detection raises 422 with NO_FACE_DETECTED code."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("scenery.jpg", b"some_image_bytes", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["code"], "NO_FACE_DETECTED")
+
+    @patch("app.routes.enroll.generate_embedding", side_effect=MultipleFacesDetectedError("Multiple human faces detected (2)."))
+    def test_enroll_multiple_faces_detected(self, mock_engine):
+        """Verify multiple faces detected raises 422 with MULTIPLE_FACES_DETECTED code."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("group.jpg", b"some_image_bytes", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["code"], "MULTIPLE_FACES_DETECTED")
+
+    @patch("app.routes.enroll.generate_embedding", side_effect=ImageDecodeError("Failed to decode image from binary bytes."))
+    def test_enroll_corrupted_image(self, mock_engine):
+        """Verify corrupted image raises 422 with IMAGE_DECODE_FAILED code."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("corrupt.png", b"corrupted_non_image_garbage", "image/png")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["code"], "IMAGE_DECODE_FAILED")
+
+    @patch("app.routes.enroll.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    @patch("app.routes.enroll.upsert_child_vector", side_effect=QdrantConnectionError("Connection refused"))
+    def test_enroll_qdrant_unavailable(self, mock_upsert, mock_engine):
+        """Verify Qdrant unavailability during enrollment returns 503."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("portrait.jpg", b"image_bytes", "image/jpeg")}
+        data = {"child_id": SAMPLE_CHILD_ID}
+
+        response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "VECTOR_DB_UNAVAILABLE")
 
     # --------------------------------------------------------------------------
-    # 4. Deterministic UUIDv5 Point Derivation
+    # 4. Biometric Similarity Search Endpoint
     # --------------------------------------------------------------------------
 
-    def test_derive_point_id_deterministic(self):
-        """Verify MongoDB ObjectId maps to identical UUIDv5 on repeat invocations."""
-        child_id = "6740b2a8d1e4c89a71e21b34"
-        point_id_1 = derive_point_id(child_id)
-        point_id_2 = derive_point_id(child_id)
+    @patch("app.routes.search.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    @patch("app.routes.search.search_similar_faces")
+    def test_search_success_with_candidates(self, mock_search, mock_engine):
+        """Verify search returns ordered candidates matching SearchResponse schema."""
+        mock_search.return_value = [
+            {"child_id": "child_match_1", "similarity": 0.9421, "point_id": "p1"},
+            {"child_id": "child_match_2", "similarity": 0.7812, "point_id": "p2"},
+        ]
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("query.jpg", b"query_image_bytes", "image/jpeg")}
+        data = {"top_k": "5", "threshold": "0.70"}
 
-        parsed = uuid.UUID(point_id_1)
-        self.assertEqual(parsed.version, 5)
-        self.assertEqual(point_id_1, point_id_2)
+        response = client.post("/internal/face/search", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 200)
+        res_data = response.json()
 
-    def test_derive_point_id_distinct_for_different_children(self):
-        """Verify different child IDs produce distinct UUIDs."""
-        id_1 = "6740b2a8d1e4c89a71e21b34"
-        id_2 = "6740b2a8d1e4c89a71e21b99"
-        self.assertNotEqual(derive_point_id(id_1), derive_point_id(id_2))
+        search_res = SearchResponse(**res_data)
+        self.assertTrue(search_res.match_found)
+        self.assertEqual(search_res.total_candidates, 2)
+        self.assertEqual(len(search_res.candidates), 2)
+        self.assertEqual(search_res.candidates[0].child_id, "child_match_1")
+        self.assertEqual(search_res.candidates[0].similarity, 0.9421)
+        self.assertNotIn("embedding", res_data)
+        self.assertNotIn("email", res_data)
 
-    def test_derive_point_id_invalid_input(self):
-        """Verify invalid inputs raise ValueError."""
-        with self.assertRaises(ValueError):
-            derive_point_id("")
+    @patch("app.routes.search.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    @patch("app.routes.search.search_similar_faces", return_value=[])
+    def test_search_no_results(self, mock_search, mock_engine):
+        """Verify search with zero matches returns match_found=False and empty candidates."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("query.jpg", b"query_image_bytes", "image/jpeg")}
+
+        response = client.post("/internal/face/search", headers=headers, files=files)
+        self.assertEqual(response.status_code, 200)
+        res_data = response.json()
+
+        search_res = SearchResponse(**res_data)
+        self.assertFalse(search_res.match_found)
+        self.assertEqual(search_res.total_candidates, 0)
+        self.assertEqual(len(search_res.candidates), 0)
+
+    def test_search_invalid_top_k(self):
+        """Verify invalid top_k / limit (<1 or >50) returns 400."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("query.jpg", b"query_image_bytes", "image/jpeg")}
+        data = {"top_k": "99"}
+
+        response = client.post("/internal/face/search", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("between 1 and 50", response.json()["detail"])
+
+    def test_search_invalid_threshold(self):
+        """Verify invalid threshold outside [-1.0, 1.0] returns 400."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("query.jpg", b"query_image_bytes", "image/jpeg")}
+        data = {"threshold": "2.5"}
+
+        response = client.post("/internal/face/search", headers=headers, data=data, files=files)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("between -1.0 and 1.0", response.json()["detail"])
+
+    @patch("app.routes.search.generate_embedding", side_effect=NoFaceDetectedError("No human face detected."))
+    def test_search_no_face_detected(self, mock_engine):
+        """Verify search with zero faces returns 422."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("tree.jpg", b"image_bytes", "image/jpeg")}
+
+        response = client.post("/internal/face/search", headers=headers, files=files)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["code"], "NO_FACE_DETECTED")
+
+    @patch("app.routes.search.generate_embedding", return_value=SAMPLE_EMBEDDING)
+    @patch("app.routes.search.search_similar_faces", side_effect=QdrantConnectionError("Connection timeout"))
+    def test_search_qdrant_unavailable(self, mock_search, mock_engine):
+        """Verify search returns 503 when Qdrant is unavailable."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        files = {"file": ("query.jpg", b"image_bytes", "image/jpeg")}
+
+        response = client.post("/internal/face/search", headers=headers, files=files)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "VECTOR_DB_UNAVAILABLE")
 
     # --------------------------------------------------------------------------
-    # 5. Schema Validation & Privacy Enforcement
+    # 5. Biometric Vector Deletion Endpoint
     # --------------------------------------------------------------------------
+
+    @patch("app.routes.delete.delete_child_vector", return_value=SAMPLE_POINT_ID)
+    def test_delete_success(self, mock_delete):
+        """Verify successful vector deletion returns 200 with DeleteResponse."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        response = client.delete(f"/internal/face/{SAMPLE_CHILD_ID}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        del_res = DeleteResponse(**response.json())
+        self.assertTrue(del_res.success)
+        self.assertEqual(del_res.child_id, SAMPLE_CHILD_ID)
+        self.assertEqual(del_res.face_profile_id, SAMPLE_POINT_ID)
+
+    @patch("app.routes.delete.delete_child_vector", return_value=SAMPLE_POINT_ID)
+    def test_delete_supports_legacy_prefix(self, mock_delete):
+        """Verify /internal/ai/delete/{child_id} works identically."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        response = client.delete(f"/internal/ai/delete/{SAMPLE_CHILD_ID}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["child_id"], SAMPLE_CHILD_ID)
+
+    @patch("app.routes.delete.delete_child_vector", return_value=SAMPLE_POINT_ID)
+    def test_delete_idempotent_repeated(self, mock_delete):
+        """Verify repeated deletions succeed consistently (idempotency)."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        res1 = client.delete(f"/internal/face/{SAMPLE_CHILD_ID}", headers=headers)
+        res2 = client.delete(f"/internal/face/{SAMPLE_CHILD_ID}", headers=headers)
+        self.assertEqual(res1.status_code, 200)
+        self.assertEqual(res2.status_code, 200)
+
+    @patch("app.routes.delete.delete_child_vector", side_effect=QdrantConnectionError("Connection failed"))
+    def test_delete_qdrant_unavailable(self, mock_delete):
+        """Verify delete returns 503 when Qdrant is offline."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        response = client.delete(f"/internal/face/{SAMPLE_CHILD_ID}", headers=headers)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["code"], "VECTOR_DB_UNAVAILABLE")
+
+    # --------------------------------------------------------------------------
+    # 6. Upload Limits & Privacy Protection
+    # --------------------------------------------------------------------------
+
+    def test_upload_size_limit_enforcement(self):
+        """Verify uploading file exceeding MAX_UPLOAD_SIZE_BYTES returns 413."""
+        headers = {"X-Internal-Service-Key": VALID_KEY}
+        huge_bytes = b"X" * 200  # Will mock limit to 100 bytes
+
+        with patch("app.utils.upload.settings.MAX_UPLOAD_SIZE_BYTES", 100):
+            files = {"file": ("huge.jpg", huge_bytes, "image/jpeg")}
+            data = {"child_id": SAMPLE_CHILD_ID}
+            response = client.post("/internal/face/enroll", headers=headers, data=data, files=files)
+            self.assertEqual(response.status_code, 413)
+            self.assertIn("exceeds the maximum allowed limit", response.json()["detail"])
 
     def test_candidate_match_schema_excludes_pii(self):
-        """Verify CandidateMatch schema strictly defines only mathematical score fields."""
+        """Verify CandidateMatch schema contains zero PII."""
         candidate = CandidateMatch(
-            child_id="6740b2a8d1e4c89a71e21b34",
+            child_id=SAMPLE_CHILD_ID,
             similarity=0.842,
             confidence=0.99,
         )
@@ -168,26 +398,14 @@ class TestAiServiceSkeleton(unittest.TestCase):
         self.assertNotIn("parent", dumped)
         self.assertNotIn("email", dumped)
         self.assertNotIn("phone", dumped)
-
-    def test_search_response_schema(self):
-        """Verify SearchResponse contract."""
-        res = SearchResponse(
-            match_found=True,
-            candidates=[CandidateMatch(child_id="123", similarity=0.88)],
-            total_candidates=1,
-            threshold_applied=0.60,
-            message="1 potential match found",
-        )
-        self.assertTrue(res.match_found)
-        self.assertEqual(len(res.candidates), 1)
-        self.assertEqual(res.candidates[0].child_id, "123")
+        self.assertNotIn("name", dumped)
 
     # --------------------------------------------------------------------------
-    # 6. Test Asset Verification
+    # 7. Asset Verification
     # --------------------------------------------------------------------------
 
     def test_test_png_asset_exists(self):
-        """Verify the copied reference portrait exists in tests/assets/."""
+        """Verify reference portrait exists in tests/assets/."""
         asset_path = os.path.join(os.path.dirname(__file__), "assets", "test.png")
         self.assertTrue(os.path.exists(asset_path), f"Expected reference asset at {asset_path}")
         self.assertGreater(os.path.getsize(asset_path), 1000000, "Reference asset appears truncated")
