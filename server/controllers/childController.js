@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Child = require("../models/Child");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
+const { enrollChildBiometric } = require("../services/childBiometricService");
+const aiService = require("../services/aiService");
 
 /**
  * Helper to safely parse JSON strings from multipart/form-data
@@ -184,10 +186,41 @@ exports.createChild = async (req, res, next) => {
       throw saveErr;
     }
 
+    // Phase 6.8: Biometric Face Enrollment Workflow
+    // If a reference photograph is present, initiate AI enrollment without blocking registration success
+    let biometricResult = null;
+    if (uploadedPhoto || resolvedPhotoUrl) {
+      try {
+        biometricResult = await enrollChildBiometric(child._id, {
+          imageBuffer: req.file ? req.file.buffer : null,
+          mimeType: req.file ? req.file.mimetype : "image/jpeg",
+          filename: req.file ? req.file.originalname : "portrait.jpg"
+        });
+      } catch (biometricErr) {
+        console.warn("[ChildController] Biometric enrollment caught unexpected error:", biometricErr.message);
+        biometricResult = {
+          success: false,
+          status: "retryable_failed",
+          message: "Biometric enrollment encountered a temporary error and will be retried."
+        };
+      }
+    }
+
+    // Re-fetch persisted child document to serialize updated biometric fields
+    const refreshedChild = (await Child.findById(child._id)) || child;
+
     return res.status(201).json({
       success: true,
-      message: "Child profile registered successfully.",
-      child: child.toSafeObject()
+      message: biometricResult?.success
+        ? "Child profile registered and biometric face profile enrolled successfully."
+        : "Child profile registered successfully.",
+      child: refreshedChild.toSafeObject(),
+      biometric: {
+        status: refreshedChild.biometricStatus || "pending",
+        faceProfileId: refreshedChild.faceProfileId || "",
+        enrolled: refreshedChild.biometricStatus === "enrolled",
+        message: biometricResult?.message || ""
+      }
     });
   } catch (error) {
     next(error);
@@ -489,10 +522,32 @@ exports.updateChildPhoto = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    // Phase 6.8: Biometric Re-enrollment for replaced photograph
+    let biometricResult = null;
+    try {
+      biometricResult = await enrollChildBiometric(child._id, {
+        imageBuffer: req.file ? req.file.buffer : null,
+        mimeType: req.file ? req.file.mimetype : "image/jpeg",
+        filename: req.file ? req.file.originalname : "portrait.jpg"
+      });
+    } catch (biometricErr) {
+      console.warn("[ChildController] Biometric re-enrollment caught error:", biometricErr.message);
+    }
+
+    const refreshedChild = (await Child.findById(child._id)) || child;
+
     return res.status(200).json({
       success: true,
-      message: "Child photo updated successfully.",
-      child: child.toSafeObject()
+      message: biometricResult?.success
+        ? "Child photo updated and biometric face profile re-enrolled successfully."
+        : "Child photo updated successfully.",
+      child: refreshedChild.toSafeObject(),
+      biometric: {
+        status: refreshedChild.biometricStatus || "pending",
+        faceProfileId: refreshedChild.faceProfileId || "",
+        enrolled: refreshedChild.biometricStatus === "enrolled",
+        message: biometricResult?.message || ""
+      }
     });
   } catch (error) {
     next(error);
@@ -500,7 +555,7 @@ exports.updateChildPhoto = async (req, res, next) => {
 };
 
 /**
- * @desc    Remove child photo and delete associated Cloudinary asset
+ * @desc    Remove child photo and delete associated Cloudinary asset and AI vector profile
  * @route   DELETE /api/children/:id/photo
  * @access  Private (Parent only)
  */
@@ -534,9 +589,23 @@ exports.deleteChildPhoto = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    // Clean up biometric face vector point from Qdrant if child was enrolled
+    if (child.faceProfileId) {
+      try {
+        await aiService.deleteFaceProfile(child._id.toString());
+      } catch (delErr) {
+        console.warn("[ChildController] Failed to delete biometric vector on photo removal:", delErr.message);
+      }
+    }
+
     child.photoUrl = "";
     child.cloudinaryPublicId = "";
     child.photos = [];
+    child.faceProfileId = "";
+    child.biometricStatus = "pending";
+    child.biometricError = "";
+    child.biometricErrorCode = "";
+    child.enrolledAt = null;
 
     await child.save();
 
@@ -544,6 +613,63 @@ exports.deleteChildPhoto = async (req, res, next) => {
       success: true,
       message: "Child photo removed successfully.",
       child: child.toSafeObject()
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Retry or trigger biometric face enrollment for an existing child
+ * @route   POST /api/children/:id/enroll-biometric
+ * @access  Private (Parent only)
+ */
+exports.retryBiometricEnrollment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid child ID format.",
+        code: "INVALID_CHILD_ID"
+      });
+    }
+
+    const child = await Child.findOne({
+      _id: id,
+      guardianId: req.user._id
+    });
+
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        message: "Child profile not found.",
+        code: "CHILD_NOT_FOUND"
+      });
+    }
+
+    if (!child.photoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Child has no photograph attached. Please upload a photo first.",
+        code: "NO_PHOTO_ATTACHED"
+      });
+    }
+
+    const result = await enrollChildBiometric(child._id);
+    const refreshedChild = (await Child.findById(child._id)) || child;
+
+    return res.status(200).json({
+      success: result.success,
+      message: result.message,
+      child: refreshedChild.toSafeObject(),
+      biometric: {
+        status: refreshedChild.biometricStatus || "pending",
+        faceProfileId: refreshedChild.faceProfileId || "",
+        enrolled: refreshedChild.biometricStatus === "enrolled",
+        code: result.code || undefined
+      }
     });
   } catch (error) {
     next(error);
