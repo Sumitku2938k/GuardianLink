@@ -26,7 +26,21 @@ const registerRateLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const photoSearchRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === "production" ? 30 : 1000,
+  skip: (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true",
+  message: {
+    success: false,
+    message: "Too many biometric photo search requests from this IP. Please try again after 15 minutes.",
+    code: "RATE_LIMIT_EXCEEDED"
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 module.exports = {
   loginRateLimiter,
-  registerRateLimiter
+  registerRateLimiter,
+  photoSearchRateLimiter
 };
