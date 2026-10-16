@@ -31,7 +31,7 @@ const normalizeUrl = (url) => {
 const getAIConfig = () => {
   const baseUrl = normalizeUrl(process.env.AI_SERVICE_URL || "http://127.0.0.1:8000");
   const internalServiceKey = (process.env.INTERNAL_SERVICE_KEY || "").trim();
-  const timeoutMs = parseInt(process.env.AI_SERVICE_TIMEOUT_MS || "10000", 10);
+  const timeoutMs = parseInt(process.env.AI_SERVICE_TIMEOUT_MS || "20000", 10);
   const maxUploadSizeBytes = parseInt(process.env.MAX_UPLOAD_SIZE_BYTES || "10485760", 10);
   const defaultLimit = parseInt(process.env.AI_DEFAULT_SEARCH_LIMIT || "5", 10);
   const defaultThreshold = parseFloat(process.env.AI_FACE_MATCH_THRESHOLD || "0.60");
@@ -39,7 +39,7 @@ const getAIConfig = () => {
   return {
     baseUrl,
     internalServiceKey,
-    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 10000,
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 20000,
     maxUploadSizeBytes: Number.isFinite(maxUploadSizeBytes) && maxUploadSizeBytes > 0 ? maxUploadSizeBytes : 10485760,
     defaultLimit: Number.isFinite(defaultLimit) && defaultLimit > 0 ? defaultLimit : 5,
     defaultThreshold: Number.isFinite(defaultThreshold) ? defaultThreshold : 0.60
