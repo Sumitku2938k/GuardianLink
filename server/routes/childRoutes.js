@@ -10,7 +10,8 @@ const {
   updateChild,
   updateChildPhoto,
   deleteChildPhoto,
-  updateChildStatus
+  updateChildStatus,
+  retryBiometricEnrollment
 } = require("../controllers/childController");
 
 // All child management operations are restricted to authenticated Parents
@@ -34,5 +35,9 @@ router
 router
   .route("/:id/status")
   .patch(updateChildStatus);
+
+router
+  .route("/:id/enroll-biometric")
+  .post(retryBiometricEnrollment);
 
 module.exports = router;

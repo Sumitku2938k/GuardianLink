@@ -161,6 +161,37 @@ const childSchema = new mongoose.Schema(
       index: true,
       sparse: true
     },
+    biometricStatus: {
+      type: String,
+      enum: {
+        values: ["pending", "processing", "enrolled", "retryable_failed", "permanent_failed"],
+        message: "Biometric status must be pending, processing, enrolled, retryable_failed, or permanent_failed"
+      },
+      default: "pending",
+      index: true
+    },
+    biometricError: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    biometricErrorCode: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    biometricAttempts: {
+      type: Number,
+      default: 0
+    },
+    lastBiometricAttemptAt: {
+      type: Date,
+      default: null
+    },
+    enrolledAt: {
+      type: Date,
+      default: null
+    },
     status: {
       type: String,
       enum: {
