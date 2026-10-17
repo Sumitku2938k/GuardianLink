@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Sparkles,
   Lock,
-  Heart
+  Heart,
+  Search
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { FoundChildCTA } from "@/components/citizen/FoundChildCTA";
@@ -50,7 +51,20 @@ export default function CitizenDashboard() {
       <FoundChildCTA onClick={handleStartFound} />
 
       {/* Quick Actions Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <Card
+          onClick={() => navigate("/citizen/search")}
+          className="p-4 text-center hover:border-teal-500/40 transition-colors cursor-pointer group"
+        >
+          <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
+            <Search className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold text-gray-900 dark:text-white block">
+            Photo Search
+          </span>
+          <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">Missing Child</span>
+        </Card>
+
         <Card
           onClick={handleStartFound}
           className="p-4 text-center hover:border-teal-500/40 transition-colors cursor-pointer group"

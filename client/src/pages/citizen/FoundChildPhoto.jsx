@@ -41,7 +41,9 @@ export default function FoundChildPhoto() {
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}>
         <PhotoCaptureCard
           photoUrl={workflowSession.photoUrl}
-          setPhotoUrl={setCapturedPhoto}
+          photoFile={workflowSession.photoFile}
+          onPhotoSelected={(file, url) => setCapturedPhoto(file, url)}
+          onPhotoRemoved={() => setCapturedPhoto(null, null)}
         />
       </motion.div>
 
