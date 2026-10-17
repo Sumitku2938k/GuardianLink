@@ -26,18 +26,28 @@ export const FoundChildCTA = ({ onClick }) => {
           </p>
         </div>
 
-        <div className="w-full lg:w-auto shrink-0 flex items-center">
-          <Link to="/citizen/found-child" className="w-full sm:w-auto" onClick={onClick}>
+        <div className="w-full lg:w-auto shrink-0 flex flex-col sm:flex-row items-center gap-3">
+          <Link to="/citizen/search" className="w-full sm:w-auto">
             <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
               <Button
                 variant="secondary"
                 size="lg"
-                className="w-full justify-center bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-black text-base py-4 px-8 shadow-xl shadow-teal-500/20"
+                className="w-full justify-center bg-gradient-to-r from-teal-400 to-emerald-400 hover:from-teal-300 hover:to-emerald-300 text-slate-950 font-black text-sm sm:text-base py-3.5 px-6 shadow-xl shadow-teal-500/20"
                 rightIcon={ArrowRight}
               >
-                Start Found Child Protocol
+                Search Missing Child
               </Button>
             </motion.div>
+          </Link>
+
+          <Link to="/citizen/found-child" className="w-full sm:w-auto" onClick={onClick}>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full justify-center text-teal-300 border-teal-500/40 hover:bg-teal-500/10 font-bold text-xs sm:text-sm py-3.5 px-5"
+            >
+              Full Protocol
+            </Button>
           </Link>
         </div>
       </div>
