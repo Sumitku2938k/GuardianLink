@@ -33,8 +33,8 @@ exports.searchMissingChild = async (req, res, next) => {
     }
 
     // 2. Parse optional search constraints
-    const rawLimit = req.body?.limit || req.query?.limit;
-    const rawThreshold = req.body?.threshold || req.query?.threshold;
+    const rawLimit = req.body?.limit !== undefined ? req.body.limit : req.query?.limit;
+    const rawThreshold = req.body?.threshold !== undefined ? req.body.threshold : req.query?.threshold;
 
     let parsedLimit = undefined;
     if (rawLimit !== undefined && rawLimit !== null && rawLimit !== "") {
