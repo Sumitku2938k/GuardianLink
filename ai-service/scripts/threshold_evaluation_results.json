@@ -1,0 +1,206 @@
+{
+  "dataset": {
+    "source": "Controlled synthetic variations of repository asset ai-service/tests/assets/test.png",
+    "base_image_dimensions": [
+      1199,
+      1312,
+      3
+    ],
+    "genuine_pairs_count": 7,
+    "impostor_pairs_count": 26,
+    "detection_failures": 0
+  },
+  "score_distribution": {
+    "genuine": {
+      "min": 0.9538294672966003,
+      "mean": 0.9883614523070199,
+      "max": 0.996758759021759,
+      "std": 0.014268945310147798,
+      "samples": [
+        [
+          "var_bright_plus30",
+          0.993600606918335
+        ],
+        [
+          "var_dark_minus30",
+          0.9538294672966003
+        ],
+        [
+          "var_contrast_high",
+          0.989882230758667
+        ],
+        [
+          "var_contrast_low",
+          0.9967585802078247
+        ],
+        [
+          "var_gaussian_blur",
+          0.994777500629425
+        ],
+        [
+          "var_jpeg_compressed_q50",
+          0.9929230213165283
+        ],
+        [
+          "var_rescaled_0.75x",
+          0.996758759021759
+        ]
+      ]
+    },
+    "impostor": {
+      "min": -1.0000001192092896,
+      "mean": -0.047084049572451755,
+      "max": 0.06958135962486267,
+      "std": 0.19381586813176435,
+      "samples": [
+        [
+          "inverted_vector",
+          -1.0000001192092896
+        ],
+        [
+          "random_identity_vector_1",
+          0.0192219577729702
+        ],
+        [
+          "random_identity_vector_2",
+          -0.04170205816626549
+        ],
+        [
+          "random_identity_vector_3",
+          0.04170684516429901
+        ],
+        [
+          "random_identity_vector_4",
+          -0.09443221241235733
+        ]
+      ]
+    }
+  },
+  "evaluation_matrix": [
+    {
+      "threshold": 0.4,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.5,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.55,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.6,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.65,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.7,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.75,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.8,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.85,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    },
+    {
+      "threshold": 0.9,
+      "tp": 7,
+      "fp": 0,
+      "tn": 26,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "specificity": 1.0,
+      "fpr": 0.0,
+      "fnr": 0.0
+    }
+  ],
+  "recommendation": {
+    "current_default": 0.6,
+    "conclusion": "KEEP_0.60_AS_EXPERIMENTAL",
+    "reasoning": "At threshold 0.60, Precision is 1.0000, Recall is 1.0000, Specificity is 1.0000, FPR is 0.0000, and FNR is 0.0000 on this controlled set. Genuine pairs scored between 0.9538 and 0.9968, while random impostor vectors peaked at 0.0696. However, because the repository contains only one base portrait, the sample size is insufficient to statistically recommend a new production threshold. The provisional 0.60 baseline should be retained as an experimental starting point."
+  }
+}
