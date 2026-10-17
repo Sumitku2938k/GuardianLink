@@ -11,6 +11,7 @@ import ReportMissingCase from "@/pages/parent/ReportMissingCase";
 import CaseDetails from "@/pages/parent/CaseDetails";
 
 import CitizenDashboard from "@/pages/citizen/CitizenDashboard";
+import CitizenPhotoSearch from "@/pages/citizen/CitizenPhotoSearch";
 import FoundChildStart from "@/pages/citizen/FoundChildStart";
 import FoundChildPhoto from "@/pages/citizen/FoundChildPhoto";
 import FoundChildMatching from "@/pages/citizen/FoundChildMatching";
@@ -133,6 +134,8 @@ export default function App() {
                         <Route element={<RoleRoute allowedRoles={["citizen"]} />}>
                           <Route element={<DashboardLayout />}>
                             <Route path="/citizen/dashboard" element={<CitizenDashboard />} />
+                            <Route path="/citizen/search" element={<CitizenPhotoSearch />} />
+                            <Route path="/citizen/search-missing-child" element={<CitizenPhotoSearch />} />
                             <Route path="/citizen/found-child" element={<FoundChildStart />} />
                             <Route path="/citizen/found-child/photo" element={<FoundChildPhoto />} />
                             <Route path="/citizen/found-child/matching" element={<FoundChildMatching />} />
