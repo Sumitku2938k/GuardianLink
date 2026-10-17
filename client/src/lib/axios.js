@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5000",
+  baseURL: (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) || "http://localhost:5000",
   withCredentials: true // Sends HttpOnly Cookies automatically
   // Note: Content-Type is omitted from default headers so Axios/browser automatically
   // selects 'application/json' for objects and 'multipart/form-data; boundary=...' for FormData.

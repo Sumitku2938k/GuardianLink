@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import { searchMissingChildPhoto } from "@/services/citizenService";
 
 const CitizenContext = createContext();
 
@@ -118,12 +119,17 @@ export const CitizenProvider = ({ children }) => {
   const [workflowSession, setWorkflowSession] = useState({
     childSafeStatus: "Safe", // Safe, Medical, Danger
     photoUrl: null,
+    photoFile: null,
     locationName: "Sector 14 Public Kiosk, Delhi",
     landmark: "Near Metro Exit 3",
     latitude: "28.6139",
     longitude: "77.2090",
-    aiResult: null, // null | 'match_found' | 'no_match'
+    isSearching: false,
+    aiResult: null, // null | 'match_found' | 'no_match' | 'error'
+    candidates: [],
     matchedCandidate: null,
+    searchOutcome: null,
+    searchError: null,
     contactRequestSent: false,
     contactRequestStatus: "Pending", // Pending | Accepted | Declined
     locationSharingActive: false
@@ -131,18 +137,30 @@ export const CitizenProvider = ({ children }) => {
 
   // Start Found Workflow
   const startFoundWorkflow = () => {
-    setWorkflowSession({
-      childSafeStatus: "Safe",
-      photoUrl: null,
-      locationName: "Sector 14 Public Kiosk, Delhi",
-      landmark: "Near Metro Exit 3",
-      latitude: "28.6139",
-      longitude: "77.2090",
-      aiResult: null,
-      matchedCandidate: null,
-      contactRequestSent: false,
-      contactRequestStatus: "Pending",
-      locationSharingActive: false
+    setWorkflowSession((prev) => {
+      if (prev.photoUrl && prev.photoUrl.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(prev.photoUrl);
+        } catch (_) {}
+      }
+      return {
+        childSafeStatus: "Safe",
+        photoUrl: null,
+        photoFile: null,
+        locationName: "Sector 14 Public Kiosk, Delhi",
+        landmark: "Near Metro Exit 3",
+        latitude: "28.6139",
+        longitude: "77.2090",
+        isSearching: false,
+        aiResult: null,
+        candidates: [],
+        matchedCandidate: null,
+        searchOutcome: null,
+        searchError: null,
+        contactRequestSent: false,
+        contactRequestStatus: "Pending",
+        locationSharingActive: false
+      };
     });
   };
 
@@ -151,42 +169,90 @@ export const CitizenProvider = ({ children }) => {
     setWorkflowSession((prev) => ({ ...prev, childSafeStatus: status }));
   };
 
-  // Set Photo
-  const setCapturedPhoto = (photoUrl) => {
-    setWorkflowSession((prev) => ({ ...prev, photoUrl }));
-  };
+  // Set Photo (accepts file or url or both)
+  const setCapturedPhoto = (photoFileOrUrl, optionalUrl) => {
+    let file = null;
+    let url = null;
 
-  // Run AI Matching Simulation
-  const runAIMatching = (forceNoMatch = false) => {
-    if (forceNoMatch) {
-      setWorkflowSession((prev) => ({
-        ...prev,
-        aiResult: "no_match",
-        matchedCandidate: null
-      }));
-      return "no_match";
+    if (typeof photoFileOrUrl === "string") {
+      url = photoFileOrUrl;
+    } else if (photoFileOrUrl instanceof Blob || photoFileOrUrl instanceof File) {
+      file = photoFileOrUrl;
+      url = optionalUrl || URL.createObjectURL(photoFileOrUrl);
     }
 
-    // Default simulation returns potential match for demo child Kabir Mehta
-    const candidate = {
-      caseId: "MC-2026-8821",
-      caseNumber: "MC-2026-8821",
-      childName: "Kabir Mehta",
-      childAge: 10,
-      confidenceScore: "94.8%",
-      similarityLevel: "High Similarity",
-      verificationStatus: "Identity Verification Required",
-      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      reportedLocation: "Central Metro Station Gate #3, Sector 12"
-    };
+    setWorkflowSession((prev) => {
+      if (prev.photoUrl && prev.photoUrl.startsWith("blob:") && prev.photoUrl !== url) {
+        try {
+          URL.revokeObjectURL(prev.photoUrl);
+        } catch (_) {}
+      }
+      return {
+        ...prev,
+        photoFile: file,
+        photoUrl: url,
+        aiResult: null,
+        candidates: [],
+        matchedCandidate: null,
+        searchError: null
+      };
+    });
+  };
+
+  // Run Real AI Matching via Backend Service
+  const runAIMatching = async (customFile = null, options = {}) => {
+    const fileToSearch = customFile || workflowSession.photoFile;
+
+    if (!fileToSearch) {
+      const err = new Error("No photograph file provided for biometric search.");
+      setWorkflowSession((prev) => ({
+        ...prev,
+        aiResult: "error",
+        searchError: err.message,
+        matchedCandidate: null,
+        candidates: []
+      }));
+      throw err;
+    }
 
     setWorkflowSession((prev) => ({
       ...prev,
-      aiResult: "match_found",
-      matchedCandidate: candidate
+      isSearching: true,
+      aiResult: null,
+      searchError: null
     }));
 
-    return "match_found";
+    try {
+      const outcome = await searchMissingChildPhoto({
+        photoFile: fileToSearch,
+        ...options
+      });
+
+      const firstCandidate = outcome.candidates?.[0] || null;
+      const aiResult = outcome.matchFound && outcome.candidates.length > 0 ? "match_found" : "no_match";
+
+      setWorkflowSession((prev) => ({
+        ...prev,
+        isSearching: false,
+        aiResult,
+        candidates: outcome.candidates || [],
+        matchedCandidate: firstCandidate,
+        searchOutcome: outcome,
+        searchError: null
+      }));
+
+      return aiResult;
+    } catch (err) {
+      setWorkflowSession((prev) => ({
+        ...prev,
+        isSearching: false,
+        aiResult: "error",
+        searchError: err.message || "Search failed.",
+        candidates: [],
+        matchedCandidate: null
+      }));
+      throw err;
+    }
   };
 
   // Request Guardian Contact
