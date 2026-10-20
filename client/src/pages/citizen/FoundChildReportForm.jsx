@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -11,7 +11,10 @@ import {
   Lock,
   ArrowRight,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  AlertTriangle,
+  Compass,
+  Calendar
 } from "lucide-react";
 
 import { useCitizen } from "@/context/CitizenContext";
@@ -23,51 +26,110 @@ import { Badge } from "@/components/ui/Badge";
 
 export default function FoundChildReportForm() {
   const navigate = useNavigate();
-  const { workflowSession, submitFoundReport } = useCitizen();
+  const routeLocation = useLocation();
+  const { workflowSession, submitRealSighting, submitFoundReport } = useCitizen();
 
+  // Extract candidate or caseId from router navigation state or workflowSession
+  const candidateFromState = routeLocation.state?.candidate || workflowSession.matchedCandidate || null;
+  const initialCaseId = routeLocation.state?.caseId || candidateFromState?.caseId || "";
+
+  const [caseId, setCaseId] = useState(initialCaseId);
   const [formData, setFormData] = useState({
-    approxAge: "8 years",
-    approxGender: "Male",
+    approxAge: candidateFromState?.age ? `${candidateFromState.age} years` : "8 years",
+    approxGender: candidateFromState?.gender || "Male",
     condition: "Healthy & Safe",
     clothing: "Blue T-shirt, navy trousers",
-    distinctiveFeatures: "Scar on right wrist",
-    notes: "Child was sitting near library reading room alone.",
+    distinctiveFeatures: "",
+    notes: "Child was sitting near public kiosk unaccompanied.",
     location: workflowSession.locationName || "Sector 14 Public Library Kiosk",
     landmark: workflowSession.landmark || "Near Central Metro Exit 3",
     latitude: workflowSession.latitude || "28.6139",
-    longitude: workflowSession.longitude || "77.2090"
+    longitude: workflowSession.longitude || "77.2090",
+    observedAt: new Date().toISOString().slice(0, 16) // format for datetime-local
   });
 
-  const [privacyAgreed, setPrivacyAgreed] = useState(false);
+  const [safetyConfirmed, setSafetyConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [submittedReport, setSubmittedReport] = useState(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  // Optional Geolocation Grab (User explicitly triggers)
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6)
+        }));
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsLoading(false);
+        alert(`Unable to retrieve GPS coordinates: ${err.message}. You may enter location manually.`);
+      },
+      { timeout: 10000, enableHighAccuracy: false }
+    );
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!privacyAgreed) {
-      alert("You must acknowledge the privacy & review disclaimer checkbox.");
+    setErrorMessage(null);
+
+    // Validate Mandatory Safety Confirmation
+    if (!safetyConfirmed) {
+      setErrorMessage("You must explicitly confirm the safety instructions before submitting.");
+      return;
+    }
+
+    if (!formData.notes || !formData.notes.trim()) {
+      setErrorMessage("Please provide details of your observation.");
       return;
     }
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
       const payload = {
+        caseId: caseId || undefined,
+        description: formData.notes.trim(),
+        location: formData.location,
+        landmark: formData.landmark,
+        latitude: formData.latitude ? Number(formData.latitude) : undefined,
+        longitude: formData.longitude ? Number(formData.longitude) : undefined,
         approxAge: formData.approxAge,
         approxGender: formData.approxGender,
         clothing: formData.clothing,
-        location: formData.location,
-        landmark: formData.landmark,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        distinctiveFeatures: formData.distinctiveFeatures,
         safetyState: formData.condition,
-        photo: workflowSession.photoUrl || "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80"
+        observedAt: formData.observedAt ? new Date(formData.observedAt).toISOString() : new Date().toISOString(),
+        caseNumber: candidateFromState?.caseNumber,
+        childName: candidateFromState?.name,
+        photo: candidateFromState?.photoUrl || workflowSession.photoUrl || ""
       };
 
-      const result = submitFoundReport(payload);
+      let result = null;
+      if (caseId && submitRealSighting) {
+        // Real Backend Sighting API Call
+        result = await submitRealSighting(payload);
+      } else {
+        // Fallback for standalone demo flow
+        result = submitFoundReport(payload);
+      }
+
       setSubmittedReport(result);
+    } catch (err) {
+      setErrorMessage(err.message || "Failed to submit sighting report. Please check case details and try again.");
+    } finally {
       setIsSubmitting(false);
-    }, 1200);
+    }
   };
 
   if (submittedReport) {
@@ -78,24 +140,24 @@ export default function FoundChildReportForm() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Found Child Report Submitted</h2>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Sighting Report Submitted</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Authorized responders can now review the report and attempt to identify or assist the child.
+            Persisted securely. Authorized law enforcement officers and verified guardians have been alerted.
           </p>
         </div>
 
         <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white text-left border border-teal-500/30 shadow-2xl space-y-2">
           <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-2">
-            <span className="text-slate-400">Report Number:</span>
+            <span className="text-slate-400">Report Reference:</span>
             <strong className="font-mono text-teal-300 font-bold">{submittedReport.reportNumber}</strong>
           </div>
           <div className="flex justify-between items-center text-xs">
-            <span className="text-slate-400">Status:</span>
+            <span className="text-slate-400">Review Status:</span>
             <Badge variant="secondary" pulse size="sm">Under Review</Badge>
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-400">Submission Time:</span>
-            <span className="text-slate-200">{submittedReport.date}</span>
+            <span className="text-slate-200">{submittedReport.date || "Just Now"}</span>
           </div>
         </div>
 
@@ -129,20 +191,56 @@ export default function FoundChildReportForm() {
             <FileText className="w-4.5 h-4.5" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-gray-900 dark:text-white">Create Found Child Report</h1>
-            <p className="text-xs text-gray-500">Quick report for police desk and NGO search queue.</p>
+            <h1 className="text-xl font-black text-gray-900 dark:text-white">Submit Sighting Report</h1>
+            <p className="text-xs text-gray-500">Authorized alert dispatched to police desk and verified guardians.</p>
           </div>
         </div>
 
-        <Button variant="outline" size="sm" onClick={() => navigate("/citizen/found-child/result")}>
+        <Button variant="outline" size="sm" onClick={() => navigate("/citizen/photo-search")}>
           Cancel
         </Button>
       </div>
 
+      {/* Matched Candidate Reference Banner */}
+      {candidateFromState ? (
+        <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center gap-3">
+          <Sparkles className="w-5 h-5 text-teal-500 shrink-0" />
+          <div className="text-xs">
+            <span className="font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wide block">
+              Reporting for Potential Match: {candidateFromState.name || "Child on Record"}
+            </span>
+            <span className="text-gray-500 dark:text-gray-400">
+              Active Case Reference: #{candidateFromState.caseNumber || candidateFromState.caseId} • AI Rating: {candidateFromState.matchConfidence || "MEDIUM"}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-slate-900 text-white text-xs space-y-2">
+          <label className="text-xs font-semibold text-slate-300 block">
+            Target Active Case Reference ID:
+          </label>
+          <input
+            type="text"
+            placeholder="Enter MongoDB Case ID (e.g. from photo search)"
+            value={caseId}
+            onChange={(e) => setCaseId(e.target.value)}
+            className="w-full py-2 px-3 text-xs rounded-xl bg-slate-950 text-white border border-slate-800 outline-none font-mono"
+          />
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-400 text-xs flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="p-6 space-y-4">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider pb-2 border-b border-gray-100 dark:border-slate-800">
-            Basic Child Details
+            Observation Details
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -164,7 +262,39 @@ export default function FoundChildReportForm() {
               >
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
+                <option value="Other">Other</option>
                 <option value="Unsure">Unsure</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-teal-500" />
+                <span>Observation Date & Time</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={formData.observedAt}
+                onChange={(e) => setFormData({ ...formData, observedAt: e.target.value })}
+                className="w-full py-2.5 px-4 text-sm rounded-xl bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-800 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1.5">
+                Child Safety Condition
+              </label>
+              <select
+                value={formData.condition}
+                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+                className="w-full py-2.5 px-4 text-sm rounded-xl bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-800 outline-none"
+              >
+                <option value="Healthy & Safe">Healthy & Safe</option>
+                <option value="Appears Lost / Distressed">Appears Lost / Distressed</option>
+                <option value="Accompanied by Unknown Adult">Accompanied by Unknown Adult</option>
+                <option value="Needs Medical Attention">Needs Medical Attention</option>
               </select>
             </div>
           </div>
@@ -185,11 +315,12 @@ export default function FoundChildReportForm() {
 
           <div>
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-1.5">
-              Additional Notes
+              Observation Details & Specific Circumstances *
             </label>
             <textarea
               rows={3}
-              placeholder="e.g. Child mentioned they were waiting for their mother near tuition center..."
+              required
+              placeholder="Describe where and how you observed the child (e.g. waiting alone near bus stand, moving toward metro gate)..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full py-2.5 px-4 text-sm rounded-xl bg-white dark:bg-slate-900 text-gray-900 dark:text-white border border-gray-200 dark:border-slate-800 outline-none resize-none"
@@ -199,12 +330,25 @@ export default function FoundChildReportForm() {
 
         {/* Location Section */}
         <Card className="p-6 space-y-4">
-          <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider pb-2 border-b border-gray-100 dark:border-slate-800">
-            Current Sighting Location
-          </h3>
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+              Sighting Location
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleUseCurrentLocation}
+              isLoading={gpsLoading}
+              leftIcon={Compass}
+              className="text-xs"
+            >
+              Use My Current GPS Point
+            </Button>
+          </div>
 
           <Input
-            label="Location Name / Address"
+            label="Location Description / Address *"
             placeholder="e.g. Sector 14 Public Library Kiosk"
             required
             icon={MapPin}
@@ -219,6 +363,21 @@ export default function FoundChildReportForm() {
             onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
           />
 
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Latitude (Optional)"
+              placeholder="e.g. 28.6139"
+              value={formData.latitude}
+              onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+            />
+            <Input
+              label="Longitude (Optional)"
+              placeholder="e.g. 77.2090"
+              value={formData.longitude}
+              onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+            />
+          </div>
+
           <MapPlaceholder
             locationName={formData.location}
             latitude={formData.latitude}
@@ -226,24 +385,30 @@ export default function FoundChildReportForm() {
           />
         </Card>
 
-        {/* Privacy & Review Notice */}
-        <div className="p-4 rounded-2xl bg-slate-900 text-white space-y-3">
+        {/* Mandatory Safety Instructions & Citizen Confirmation */}
+        <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-3">
+          <div className="flex items-center gap-2 font-black uppercase text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Mandatory Public Safety Confirmation</span>
+          </div>
+
           <label className="flex items-start gap-3 cursor-pointer select-none text-xs">
             <input
               type="checkbox"
-              checked={privacyAgreed}
-              onChange={(e) => setPrivacyAgreed(e.target.checked)}
-              className="w-5 h-5 rounded border-gray-300 text-teal-500 focus:ring-teal-400 accent-teal-500 mt-0.5"
+              required
+              checked={safetyConfirmed}
+              onChange={(e) => setSafetyConfirmed(e.target.checked)}
+              className="w-5 h-5 rounded border-amber-400 text-teal-500 focus:ring-teal-400 accent-teal-500 mt-0.5"
             />
-            <span className="text-slate-300 leading-relaxed font-semibold">
-              I understand that this report may be reviewed by authorized GuardianLink personnel, police, or verified NGOs for child recovery.
+            <span className="leading-relaxed font-semibold">
+              I understand that a potential facial match is not confirmation of identity. I will not confront, detain, follow, or physically intervene with anyone. I will provide truthful observations and allow authorized responders to assess the information.
             </span>
           </label>
         </div>
 
-        {/* Buttons */}
+        {/* Action Buttons */}
         <div className="flex justify-between items-center pt-2">
-          <Button variant="outline" type="button" onClick={() => navigate("/citizen/found-child/result")}>
+          <Button variant="outline" type="button" onClick={() => navigate("/citizen/photo-search")}>
             Back
           </Button>
 
@@ -251,11 +416,11 @@ export default function FoundChildReportForm() {
             type="submit"
             variant="primary"
             isLoading={isSubmitting}
-            isDisabled={!privacyAgreed}
-            className="bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold hover:from-teal-400 hover:to-emerald-400 border-none"
+            isDisabled={!safetyConfirmed}
+            className="bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-bold hover:from-teal-400 hover:to-emerald-400 border-none shadow-lg shadow-teal-500/20"
             leftIcon={FileText}
           >
-            Submit Found Child Report
+            Submit Sighting to Responders
           </Button>
         </div>
       </form>

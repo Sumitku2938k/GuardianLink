@@ -253,3 +253,156 @@ export async function searchMissingChildPhoto({ photoFile, limit, threshold, sig
     throw wrappedErr;
   }
 }
+
+/**
+ * Submits a citizen sighting report for an active missing case.
+ *
+ * @param {Object} params
+ * @param {string} params.caseId - Authoritative MissingCase reference ID
+ * @param {string} params.description - Observation description
+ * @param {boolean} params.safetyConfirmed - Mandatory safety acknowledgment
+ * @param {Object} [params.location] - Sighting address, city, coords
+ * @param {Object} [params.appearance] - Approx age, gender, clothing
+ * @param {string} [params.safetyState] - Observed safety condition
+ * @param {string|Date} [params.observedAt] - Observation time
+ * @returns {Promise<{ sighting: Object, notifications: Object, message: string }>}
+ */
+export async function submitSightingReport(params) {
+  if (!params.caseId) {
+    const err = new Error("A valid missing case reference is required to submit a sighting.");
+    err.code = "INVALID_CASE_ID";
+    throw err;
+  }
+
+  if (params.safetyConfirmed !== true) {
+    const err = new Error("You must confirm the safety instructions before submitting.");
+    err.code = "SAFETY_CONFIRMATION_REQUIRED";
+    throw err;
+  }
+
+  if (!params.description || !params.description.trim()) {
+    const err = new Error("Please provide details of your observation.");
+    err.code = "MISSING_DESCRIPTION";
+    throw err;
+  }
+
+  try {
+    const res = await api.post("/api/sightings", {
+      caseId: params.caseId,
+      description: params.description.trim(),
+      safetyConfirmed: true,
+      location: params.location || {},
+      appearance: params.appearance || {},
+      safetyState: params.safetyState || "Safe",
+      observedAt: params.observedAt || new Date().toISOString()
+    });
+
+    if (res.data && res.data.success) {
+      return {
+        sighting: res.data.sighting,
+        notifications: res.data.notifications || {},
+        message: res.data.message || "Sighting report registered successfully."
+      };
+    }
+
+    throw new Error(res.data?.message || "Failed to submit sighting report.");
+  } catch (err) {
+    const status = err.response?.status;
+    const data = err.response?.data || {};
+    const errorMsg = data.message || err.message || "Unable to submit sighting report.";
+    const wrappedErr = new Error(errorMsg);
+    wrappedErr.code = data.code || (status === 409 ? "CASE_NOT_ELIGIBLE" : "SUBMISSION_FAILED");
+    wrappedErr.status = status;
+    throw wrappedErr;
+  }
+}
+
+/**
+ * Retrieves sighting reports submitted by the logged-in citizen.
+ *
+ * @param {Object} [options]
+ * @returns {Promise<Array<Object>>}
+ */
+export async function getMySightings(options = {}) {
+  try {
+    const res = await api.get("/api/sightings/mine", { params: options });
+    if (res.data && res.data.success) {
+      return res.data.sightings || [];
+    }
+    return [];
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || err.message || "Failed to fetch submitted sightings.";
+    const wrappedErr = new Error(errorMsg);
+    wrappedErr.code = err.response?.data?.code || "FETCH_FAILED";
+    throw wrappedErr;
+  }
+}
+
+/**
+ * Retrieves single sighting report details by ID.
+ *
+ * @param {string} sightingId
+ * @returns {Promise<Object>}
+ */
+export async function getSightingDetails(sightingId) {
+  try {
+    const res = await api.get(`/api/sightings/${sightingId}`);
+    if (res.data && res.data.success) {
+      return res.data.sighting;
+    }
+    throw new Error("Sighting record not found.");
+  } catch (err) {
+    const errorMsg = err.response?.data?.message || err.message || "Failed to retrieve sighting.";
+    const wrappedErr = new Error(errorMsg);
+    wrappedErr.code = err.response?.data?.code || "FETCH_FAILED";
+    throw wrappedErr;
+  }
+}
+
+/**
+ * Retrieves in-app alerts and notifications for the authenticated user.
+ *
+ * @param {Object} [options]
+ * @returns {Promise<Array<Object>>}
+ */
+export async function getUserNotifications(options = {}) {
+  try {
+    const res = await api.get("/api/notifications", { params: options });
+    if (res.data && res.data.success) {
+      return res.data.notifications || [];
+    }
+    return [];
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Marks a notification as read.
+ *
+ * @param {string} notificationId
+ * @returns {Promise<Object>}
+ */
+export async function markNotificationAsRead(notificationId) {
+  try {
+    const res = await api.patch(`/api/notifications/${notificationId}/read`);
+    return res.data?.notification;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Marks all notifications as read.
+ *
+ * @returns {Promise<boolean>}
+ */
+export async function markAllNotificationsAsRead() {
+  try {
+    await api.patch("/api/notifications/read-all");
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+

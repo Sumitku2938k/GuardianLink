@@ -372,8 +372,8 @@ export default function CitizenPhotoSearch() {
               <MatchResultCard
                 key={candidate.candidateId || idx}
                 candidate={candidate}
-                onShareLocation={() => navigate("/citizen/found-child/location")}
-                onReportSighting={() => navigate("/citizen/found-child/report")}
+                onShareLocation={() => navigate("/citizen/found-child/location", { state: { candidate, caseId: candidate.caseId } })}
+                onReportSighting={() => navigate("/citizen/found-child/report", { state: { candidate, caseId: candidate.caseId } })}
               />
             ))}
           </div>
