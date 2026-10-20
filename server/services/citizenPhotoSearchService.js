@@ -49,16 +49,20 @@ const serializeCitizenCandidate = (candidate, child, missingCase) => {
     caseNumber: missingCase.caseNumber,
     childId: child._id.toString(),
     name: child.fullName,
+    displayName: child.fullName,
     age: child.age !== null && child.age !== undefined ? child.age : null,
     gender: child.gender,
     description: missingCase.lastSeenDescription || child.description || "",
     lastSeenLocation: locationString,
+    lastKnownArea: locationString,
     missingDate: missingCase.missingDate ? missingCase.missingDate.toISOString() : "",
     photoUrl: child.photoUrl || "",
     caseStatus: missingCase.status,
     priority: missingCase.priority || "high",
     similarity: Number(similarity.toFixed(4)),
     matchConfidence,
+    matchStatus: "potential",
+    canReportSighting: true,
     disclaimer: "Potential biometric lead. Requires independent law enforcement and guardian verification."
   };
 };
