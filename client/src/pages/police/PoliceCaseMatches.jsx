@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Cpu, ArrowLeft, ShieldCheck, AlertTriangle } from "lucide-react";
 import { usePolice } from "@/context/PoliceContext";
@@ -10,16 +10,38 @@ export default function PoliceCaseMatches() {
   const { caseId } = useParams();
   const navigate = useNavigate();
 
-  const { getCaseById, potentialMatches, verifyMatchDecision } = usePolice();
+  const { getCaseById, fetchCaseDetails, potentialMatches, verifyMatchDecision } = usePolice();
   const caseData = getCaseById(caseId);
 
+  const [loading, setLoading] = useState(!caseData);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!caseData && caseId) {
+      setLoading(true);
+      fetchCaseDetails(caseId)
+        .then(() => setLoading(false))
+        .catch(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [caseId, caseData, fetchCaseDetails]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+        <span className="text-xs font-mono text-slate-400">Loading AI matches for case #{caseId}...</span>
+      </div>
+    );
+  }
 
   if (!caseData) {
     return (
       <div className="text-center py-12">
         <h3 className="text-xl font-bold text-white">Case Not Found</h3>
+        <p className="text-xs text-slate-400 mt-1">Case #{caseId} could not be loaded.</p>
         <Button onClick={() => navigate("/police/cases")} className="mt-4">
           Back to Cases
         </Button>

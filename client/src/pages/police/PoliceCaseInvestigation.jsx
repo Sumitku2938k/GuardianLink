@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FileText, CheckSquare, Plus, ArrowLeft, ShieldCheck, UserCheck, Clock } from "lucide-react";
 import { usePolice } from "@/context/PoliceContext";
@@ -13,6 +13,7 @@ export default function PoliceCaseInvestigation() {
 
   const {
     getCaseById,
+    fetchCaseDetails,
     investigationNotes,
     investigationTasks,
     toggleTask,
@@ -21,12 +22,39 @@ export default function PoliceCaseInvestigation() {
   } = usePolice();
 
   const caseData = getCaseById(caseId);
+  const [loading, setLoading] = useState(!caseData);
+  const [fetchError, setFetchError] = useState(null);
   const [newTaskLabel, setNewTaskLabel] = useState("");
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
+
+  useEffect(() => {
+    if (!caseData && caseId) {
+      setLoading(true);
+      fetchCaseDetails(caseId)
+        .then(() => setLoading(false))
+        .catch((err) => {
+          setFetchError(err.message || "Failed to load case record.");
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [caseId, caseData, fetchCaseDetails]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+        <span className="text-xs font-mono text-slate-400">Loading investigation workspace #{caseId}...</span>
+      </div>
+    );
+  }
 
   if (!caseData) {
     return (
       <div className="text-center py-12">
         <h3 className="text-xl font-bold text-white">Case Not Found</h3>
+        <p className="text-xs text-slate-400 mt-1">Case #{caseId} could not be loaded.</p>
         <Button onClick={() => navigate("/police/cases")} className="mt-4">
           Back to Cases
         </Button>
@@ -37,11 +65,18 @@ export default function PoliceCaseInvestigation() {
   const tasksList = investigationTasks[caseData.id] || [];
   const notesList = investigationNotes[caseData.id] || [];
 
-  const handleCreateTask = (e) => {
+  const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!newTaskLabel.trim()) return;
-    createTask(caseData.id, newTaskLabel, caseData.assignedOfficerName);
-    setNewTaskLabel("");
+    setIsSubmittingTask(true);
+    try {
+      await createTask(caseData.id, newTaskLabel.trim(), caseData.assignedOfficerName);
+      setNewTaskLabel("");
+    } catch (err) {
+      console.error("[PoliceCaseInvestigation] Error creating task:", err);
+    } finally {
+      setIsSubmittingTask(false);
+    }
   };
 
   return (

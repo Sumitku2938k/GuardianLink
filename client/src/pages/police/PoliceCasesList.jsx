@@ -18,13 +18,19 @@ export default function PoliceCasesList() {
   const [priorityFilter, setPriorityFilter] = useState("All");
 
   const filteredCases = policeCases.filter((c) => {
-    const matchesSearch =
-      c.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lastSeenLocation.toLowerCase().includes(searchQuery.toLowerCase());
+    const caseNumber = c?.caseNumber || "";
+    const childName = c?.childName || "";
+    const lastSeenLocation = c?.lastSeenLocation || "";
+    const status = c?.status || "";
+    const priority = c?.priority || "";
 
-    const matchesStatus = statusFilter === "All" || c.status.toLowerCase() === statusFilter.toLowerCase();
-    const matchesPriority = priorityFilter === "All" || c.priority.toLowerCase() === priorityFilter.toLowerCase();
+    const matchesSearch =
+      caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      childName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lastSeenLocation.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === "All" || status.toLowerCase() === statusFilter.toLowerCase();
+    const matchesPriority = priorityFilter === "All" || priority.toLowerCase() === priorityFilter.toLowerCase();
 
     return matchesSearch && matchesStatus && matchesPriority;
   });
