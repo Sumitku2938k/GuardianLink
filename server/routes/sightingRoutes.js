@@ -19,19 +19,25 @@ const {
   getMySightings,
   getSightingById,
   reviewSighting,
-  getCaseSightings
+  getCaseSightings,
+  getAllSightings
 } = require("../controllers/sightingController");
 
 // All sighting routes require authenticated session/token
 router.use(authenticate);
 
-// Citizen & Platform User Sighting Submission
-router.post(
-  "/",
-  sightingRateLimiter,
-  authorize("citizen", "parent", "police", "ngo", "admin"),
-  submitSighting
-);
+// Sighting Submission & Police Desk Queue
+router
+  .route("/")
+  .post(
+    sightingRateLimiter,
+    authorize("citizen", "parent", "police", "ngo", "admin"),
+    submitSighting
+  )
+  .get(
+    authorize("police", "admin", "ngo"),
+    getAllSightings
+  );
 
 // List authenticated citizen's submitted reports
 router.get(

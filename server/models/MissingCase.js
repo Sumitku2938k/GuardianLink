@@ -111,7 +111,98 @@ const missingCaseSchema = new mongoose.Schema(
     },
     reunitedAt: {
       type: Date
-    }
+    },
+    assignedOfficer: {
+      id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+      },
+      name: {
+        type: String,
+        trim: true,
+        default: ""
+      },
+      badgeNumber: {
+        type: String,
+        trim: true,
+        default: ""
+      },
+      assignedAt: {
+        type: Date,
+        default: null
+      }
+    },
+    investigationNotes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: []
+    },
+    investigationTasks: [
+      {
+        label: {
+          type: String,
+          required: [true, "Task label is required"],
+          trim: true,
+          maxlength: [500, "Task label cannot exceed 500 characters"]
+        },
+        completed: {
+          type: Boolean,
+          default: false
+        },
+        assignedTo: {
+          type: String,
+          trim: true,
+          default: ""
+        },
+        completedAt: {
+          type: Date,
+          default: null
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
+    potentialMatchReviews: [
+      {
+        matchId: {
+          type: String,
+          trim: true,
+          default: ""
+        },
+        candidateId: {
+          type: String,
+          trim: true,
+          default: ""
+        },
+        decision: {
+          type: String,
+          enum: ["confirm", "reject", "request_evidence"],
+          required: true
+        },
+        verificationStatus: {
+          type: String,
+          trim: true,
+          default: "Pending"
+        },
+        notes: {
+          type: String,
+          trim: true,
+          default: "",
+          maxlength: [1000, "Notes cannot exceed 1000 characters"]
+        },
+        reviewedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true
+        },
+        reviewedAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ]
   },
   {
     timestamps: true,
@@ -129,6 +220,7 @@ missingCaseSchema.virtual("caseNumber").get(function () {
 missingCaseSchema.index({ childId: 1, status: 1 });
 missingCaseSchema.index({ "lastSeenLocation.city": 1, status: 1 });
 missingCaseSchema.index({ reportedBy: 1, status: 1 });
+missingCaseSchema.index({ "assignedOfficer.id": 1, status: 1 });
 missingCaseSchema.index({ createdAt: -1 });
 
 // Ownership check helper
@@ -144,6 +236,65 @@ missingCaseSchema.methods.toSafeObject = function () {
   delete obj.__v;
   obj.id = obj._id.toString();
   obj.caseNumber = this.caseNumber;
+
+  if (Array.isArray(obj.investigationNotes)) {
+    obj.investigationNotes = obj.investigationNotes.map((n, idx) => {
+      if (typeof n === "string") {
+        return {
+          id: `note-${idx}`,
+          officerName: "Investigating Officer",
+          badge: "DL-POL-0000",
+          text: n,
+          createdAt: obj.createdAt
+        };
+      }
+      return {
+        ...n,
+        id: (n._id || n.id || `note-${idx}`).toString()
+      };
+    });
+  } else if (typeof obj.investigationNotes === "string" && obj.investigationNotes.trim()) {
+    obj.investigationNotes = [
+      {
+        id: "note-0",
+        officerName: "Investigating Officer",
+        badge: "DL-POL-0000",
+        text: obj.investigationNotes,
+        createdAt: obj.createdAt
+      }
+    ];
+  } else {
+    obj.investigationNotes = [];
+  }
+
+  if (Array.isArray(obj.investigationTasks)) {
+    obj.investigationTasks = obj.investigationTasks.map((t) => ({
+      ...t,
+      id: t._id ? t._id.toString() : t.id
+    }));
+  }
+
+  if (Array.isArray(obj.potentialMatchReviews)) {
+    obj.potentialMatchReviews = obj.potentialMatchReviews.map((r) => ({
+      ...r,
+      id: r._id ? r._id.toString() : r.id
+    }));
+  }
+
+  // Populate helper convenience aliases for police dashboard/table views
+  if (obj.childId && typeof obj.childId === "object") {
+    obj.childName = obj.childId.fullName || obj.childId.name || "";
+    obj.childAge = obj.childId.age;
+    obj.childGender = obj.childId.gender;
+    obj.childPhoto = obj.childId.photoUrl || obj.childId.photo || "";
+  }
+
+  if (obj.assignedOfficer) {
+    obj.assignedOfficerId = obj.assignedOfficer.id ? obj.assignedOfficer.id.toString() : "";
+    obj.assignedOfficerName = obj.assignedOfficer.name || "";
+    obj.assignedOfficerBadge = obj.assignedOfficer.badgeNumber || "";
+  }
+
   return obj;
 };
 

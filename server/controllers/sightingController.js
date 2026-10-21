@@ -227,3 +227,45 @@ exports.getCaseSightings = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Get all sighting reports for law enforcement desk queue
+ * @route   GET /api/sightings
+ * @access  Private (Police, Admin, NGO)
+ */
+exports.getAllSightings = async (req, res, next) => {
+  try {
+    const sightings = await sightingService.getAllSightings(
+      {
+        status: req.query.status,
+        limit: req.query.limit
+      },
+      req.user
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: sightings.length,
+      sightings
+    });
+  } catch (error) {
+    if (error.code === "ACCOUNT_VERIFICATION_PENDING") {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+        code: error.code
+      });
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return res.status(403).json({
+        success: false,
+        message: error.message,
+        code: error.code
+      });
+    }
+
+    next(error);
+  }
+};
+
