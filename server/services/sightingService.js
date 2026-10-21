@@ -387,10 +387,56 @@ const getCaseSightings = async (caseId, requestingUser) => {
   );
 };
 
+/**
+ * Retrieves all sightings across cases for law enforcement and authorized desks.
+ *
+ * @param {Object} options
+ * @param {string} [options.status]
+ * @param {number} [options.limit]
+ * @param {Object} requestingUser
+ * @returns {Promise<Array<Object>>}
+ */
+const getAllSightings = async (options = {}, requestingUser) => {
+  if (!["police", "admin", "ngo"].includes(requestingUser.role)) {
+    const error = new Error("Access denied. Only authorized personnel can inspect the sightings queue.");
+    error.status = 403;
+    error.code = "FORBIDDEN";
+    throw error;
+  }
+
+  if (requestingUser.role === "police" && requestingUser.status !== "approved") {
+    const error = new Error("Police account is awaiting administrative approval.");
+    error.status = 403;
+    error.code = "ACCOUNT_VERIFICATION_PENDING";
+    throw error;
+  }
+
+  const query = {};
+  if (options.status && options.status !== "All") {
+    query.status = options.status.toLowerCase().trim();
+  }
+
+  const limit = Math.min(Math.max(Number(options.limit) || 100, 1), 200);
+
+  const sightings = await Sighting.find(query)
+    .populate("caseId", "caseNumber status priority lastSeenLocation reportedBy")
+    .populate("childId", "fullName photoUrl age gender")
+    .sort({ createdAt: -1 })
+    .limit(limit);
+
+  return sightings.map((s) =>
+    s.toSafeObject({
+      isAuthorizedResponder: true,
+      isReporter: false
+    })
+  );
+};
+
 module.exports = {
   submitSighting,
   getMySightings,
   getSightingById,
   reviewSighting,
-  getCaseSightings
+  getCaseSightings,
+  getAllSightings
 };
