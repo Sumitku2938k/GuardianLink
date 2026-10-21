@@ -10,15 +10,18 @@ export const MatchVerificationModal = ({ isOpen, onClose, match, onConfirmDecisi
 
   if (!match) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      onConfirmDecision(match.id, decision, notes);
-      setIsSubmitting(false);
+    try {
+      await onConfirmDecision(match.id, decision, notes);
       onClose();
-    }, 1000);
+    } catch (err) {
+      console.error("[MatchVerificationModal] Submission error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

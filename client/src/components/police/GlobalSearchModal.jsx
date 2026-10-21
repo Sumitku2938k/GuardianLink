@@ -12,14 +12,14 @@ export const GlobalSearchModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const matchingCases = policeCases.filter((c) =>
-    c.caseNumber.toLowerCase().includes(query.toLowerCase()) ||
-    c.childName.toLowerCase().includes(query.toLowerCase()) ||
-    c.lastSeenLocation.toLowerCase().includes(query.toLowerCase())
+    (c?.caseNumber || "").toLowerCase().includes(query.toLowerCase()) ||
+    (c?.childName || "").toLowerCase().includes(query.toLowerCase()) ||
+    (c?.lastSeenLocation || "").toLowerCase().includes(query.toLowerCase())
   );
 
   const matchingOfficers = officers.filter((o) =>
-    o.name.toLowerCase().includes(query.toLowerCase()) ||
-    o.badgeNumber.toLowerCase().includes(query.toLowerCase())
+    (o?.name || "").toLowerCase().includes(query.toLowerCase()) ||
+    (o?.badgeNumber || "").toLowerCase().includes(query.toLowerCase())
   );
 
   const handleSelectCase = (caseId) => {

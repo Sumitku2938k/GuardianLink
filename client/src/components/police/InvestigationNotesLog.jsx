@@ -6,16 +6,19 @@ export const InvestigationNotesLog = ({ caseId, notes = [], onAddNote }) => {
   const [newNoteText, setNewNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newNoteText.trim()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      onAddNote(caseId, newNoteText);
+    try {
+      await onAddNote(caseId, newNoteText.trim());
       setNewNoteText("");
+    } catch (err) {
+      console.error("[InvestigationNotesLog] Error adding note:", err);
+    } finally {
       setIsSubmitting(false);
-    }, 600);
+    }
   };
 
   return (

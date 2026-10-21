@@ -18,20 +18,53 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 
-export const POLICE_MENU_ITEMS = [
-  { id: "dashboard", path: "/police/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "cases", path: "/police/cases", label: "Active Cases", icon: AlertTriangle, badge: "12", badgeVariant: "danger" },
-  { id: "reports", path: "/police/reports", label: "Case Queue / Reports", icon: FileText, badge: "5", badgeVariant: "warning" },
-  { id: "matches", path: "/police/cases/MC-2026-8821/matches", label: "Potential Matches", icon: Cpu, badge: "3", badgeVariant: "primary" },
-  { id: "assignments", path: "/police/assignments", label: "Officer Roster", icon: Users },
-  { id: "analytics", path: "/police/analytics", label: "Station Analytics", icon: BarChart3 },
-  { id: "notifications", path: "/police/notifications", label: "Notifications", icon: Bell, badge: "3" },
-  { id: "profile", path: "/police/profile", label: "Officer Profile", icon: User }
-];
+import { usePolice } from "@/context/PoliceContext";
 
 export const PoliceSidebar = ({ isOpen, onClose, currentOfficer, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { policeCases, foundReports, potentialMatches, policeNotifications, currentStation } = usePolice();
+
+  const firstCaseId = policeCases[0]?.id;
+  const matchesPath = firstCaseId ? `/police/cases/${firstCaseId}/matches` : "/police/cases";
+
+  const menuItems = [
+    { id: "dashboard", path: "/police/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    {
+      id: "cases",
+      path: "/police/cases",
+      label: "Active Cases",
+      icon: AlertTriangle,
+      badge: policeCases.length > 0 ? String(policeCases.length) : null,
+      badgeVariant: "danger"
+    },
+    {
+      id: "reports",
+      path: "/police/reports",
+      label: "Case Queue / Reports",
+      icon: FileText,
+      badge: foundReports.length > 0 ? String(foundReports.length) : null,
+      badgeVariant: "warning"
+    },
+    {
+      id: "matches",
+      path: matchesPath,
+      label: "Potential Matches",
+      icon: Cpu,
+      badge: potentialMatches.length > 0 ? String(potentialMatches.length) : null,
+      badgeVariant: "primary"
+    },
+    { id: "assignments", path: "/police/assignments", label: "Officer Roster", icon: Users },
+    { id: "analytics", path: "/police/analytics", label: "Station Analytics", icon: BarChart3 },
+    {
+      id: "notifications",
+      path: "/police/notifications",
+      label: "Notifications",
+      icon: Bell,
+      badge: policeNotifications.length > 0 ? String(policeNotifications.length) : null
+    },
+    { id: "profile", path: "/police/profile", label: "Officer Profile", icon: User }
+  ];
 
   return (
     <>
@@ -79,12 +112,12 @@ export const PoliceSidebar = ({ isOpen, onClose, currentOfficer, onLogout }) => 
           {/* Station Badge Box */}
           <div className="p-4 bg-slate-900/40 border-b border-slate-800/60 flex items-center gap-2 text-xs text-slate-300">
             <Building2 className="w-4 h-4 text-teal-400 shrink-0" />
-            <span className="truncate font-semibold text-[11px]">Delhi Central Metro Post</span>
+            <span className="truncate font-semibold text-[11px]">{currentStation || "Central Police Command"}</span>
           </div>
 
           {/* Navigation Links */}
           <nav className="p-3 space-y-1">
-            {POLICE_MENU_ITEMS.map((item) => {
+            {menuItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path !== "/police/dashboard" && location.pathname.startsWith(item.path));
               const ItemIcon = item.icon;
 

@@ -11,15 +11,18 @@ export const AssignmentModal = ({ isOpen, onClose, selectedCase, onAssignConfirm
 
   if (!selectedCase) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      onAssignConfirm(selectedCase.id, selectedOfficerId);
-      setIsSubmitting(false);
+    try {
+      await onAssignConfirm(selectedCase.id, selectedOfficerId);
       onClose();
-    }, 800);
+    } catch (err) {
+      console.error("[AssignmentModal] Assignment error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
