@@ -8,19 +8,25 @@ export const CareUpdateFormModal = ({ isOpen, onClose, child, onSaveCareUpdate }
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [errorMsg, setErrorMsg] = useState("");
+
   if (!child) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!notes.trim()) return;
 
+    setErrorMsg("");
     setIsSubmitting(true);
-    setTimeout(() => {
-      onSaveCareUpdate(child.id, { category, notes });
+    try {
+      await onSaveCareUpdate(child.id || child._id, { category, notes });
       setNotes("");
       setIsSubmitting(false);
       onClose();
-    }, 800);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || err.message || "Failed to save care log.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -37,6 +43,11 @@ export const CareUpdateFormModal = ({ isOpen, onClose, child, onSaveCareUpdate }
       maxWidth="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+        {errorMsg && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-400 font-semibold">
+            {errorMsg}
+          </div>
+        )}
         <div>
           <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold uppercase block mb-1">
             Care Category

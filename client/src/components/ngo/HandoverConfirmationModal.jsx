@@ -15,17 +15,23 @@ export const HandoverConfirmationModal = ({ isOpen, onClose, child, onConfirmHan
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [errorMsg, setErrorMsg] = useState("");
+
   if (!child) return null;
 
-  const handleFinalSubmit = (e) => {
+  const handleFinalSubmit = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      onConfirmHandover(child.id, handoverData);
+    try {
+      await onConfirmHandover(child.id || child._id, handoverData);
       setIsSubmitting(false);
       onClose();
-    }, 1200);
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || err.message || "Failed to complete handover.");
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -79,6 +85,12 @@ export const HandoverConfirmationModal = ({ isOpen, onClose, child, onConfirmHan
         </div>
       ) : (
         <form onSubmit={handleFinalSubmit} className="space-y-4 text-xs">
+          {errorMsg && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-400 font-semibold">
+              {errorMsg}
+            </div>
+          )}
+
           <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-xl text-teal-600 dark:text-teal-300 font-semibold">
             Record final handover details for official NGO release archives.
           </div>

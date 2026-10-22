@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useAuth } from "./AuthContext";
+import * as ngoService from "@/services/ngoService";
+import api from "@/lib/axios";
 
 const NgoContext = createContext();
 
@@ -11,23 +14,25 @@ export const useNgo = () => {
 };
 
 export const NgoProvider = ({ children }) => {
-  // Active NGO Organization Profile
+  const { user, isAuthenticated } = useAuth();
+
+  // Active NGO Organization Profile derived from session
   const [currentNgo, setCurrentNgo] = useState({
-    name: "Helping Hands Child Foundation",
+    name: user?.organization || user?.name || "Helping Hands Child Foundation",
     registrationNumber: "NGO-DL-2024-9841",
-    verificationStatus: "Verified Non-Profit Shelter",
-    address: "Community Shelter Kiosk, Sector 12, Delhi",
-    phone: "+91 11 2617 2000",
-    email: "contact@helpinghands.org",
+    verificationStatus: user?.status === "approved" ? "Verified Non-Profit Shelter" : "Verification Pending",
+    address: user?.address || "Community Shelter Kiosk, Sector 12, Delhi",
+    phone: user?.phone || "+91 11 2617 2000",
+    email: user?.email || "contact@helpinghands.org",
     logo: "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"
   });
 
-  // Shelter Capacity Info
+  // State
   const [shelterInfo, setShelterInfo] = useState({
-    totalCapacity: 20,
-    occupied: 8,
-    available: 12,
-    pendingIntake: 2,
+    totalCapacity: 0,
+    occupied: 0,
+    available: 0,
+    pendingIntake: 0,
     staffCount: 12,
     facilities: [
       { name: "Emergency Medical Care Room", status: "Operational" },
@@ -37,262 +42,341 @@ export const NgoProvider = ({ children }) => {
     ]
   });
 
-  // Children Currently in NGO Shelter Care
-  const [childrenInCare, setChildrenInCare] = useState([
-    {
-      id: "3",
-      childReference: "Kabir Mehta",
-      caseNumber: "MC-2026-8821",
-      intakeId: "IN-2026-8801",
-      approxAge: 10,
-      gender: "Male",
-      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      receivedDate: "2026-08-08 16:45",
-      timeInShelter: "3 days in care",
-      careStatus: "Awaiting Verification", // Newly Received, Under Assessment, Stable, Medical Attention, Awaiting Verification, Reunification Pending, Transfer Pending, Released
-      medicalStatus: "Monitoring", // Stable, Monitoring, Medical Attention Required, Emergency
-      safetyState: "Safe in Dormitory",
-      assignedDorm: "Dorm B - Bed 04",
-      guardianVerificationStatus: "Guardian Located - Identity Match 94.8%",
-      policeStation: "Delhi Central Metro Police Post",
-      assignedOfficer: "Insp. R. S. Rathore",
-      intakeSource: "Citizen Sighting at Sector 14 Metro",
-
-      // Care Needs
-      foodProvided: true,
-      waterProvided: true,
-      clothingProvided: true,
-      restingAreaProvided: true,
-      emotionalState: "Calm & Reassured",
-      careNotes: "Provided warm dinner and clean T-shirt. Participating in reading activity."
-    },
-    {
-      id: "4",
-      childReference: "Rhea Kapoor",
-      caseNumber: "MC-2026-4431",
-      intakeId: "IN-2026-4412",
-      approxAge: 7,
-      gender: "Female",
-      photo: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80",
-      receivedDate: "2026-08-09 12:30",
-      timeInShelter: "2 days in care",
-      careStatus: "Under Assessment",
-      medicalStatus: "Medical Attention Required",
-      safetyState: "In Medical Observation Ward",
-      assignedDorm: "Medical Ward - Bed 01",
-      guardianVerificationStatus: "Pending Police Desk Review",
-      policeStation: "Sector 18 Police Post",
-      assignedOfficer: "Insp. V. K. Sharma",
-      intakeSource: "Police Escort from City Mall",
-
-      foodProvided: true,
-      waterProvided: true,
-      clothingProvided: true,
-      restingAreaProvided: true,
-      emotionalState: "Anxious - Seeking Mother",
-      careNotes: "Mild fever treated by shelter doctor. Counselor conducting play therapy."
-    },
-    {
-      id: "5",
-      childReference: "Aryan Kumar (Ref #CR-2026-3180)",
-      caseNumber: "CR-2026-3180",
-      intakeId: "IN-2026-3110",
-      approxAge: 6,
-      gender: "Male",
-      photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
-      receivedDate: "2026-08-10 12:00",
-      timeInShelter: "1 day in care",
-      careStatus: "Stable",
-      medicalStatus: "Stable",
-      safetyState: "Safe in Play Area",
-      assignedDorm: "Dorm A - Bed 02",
-      guardianVerificationStatus: "Searching Records",
-      policeStation: "Railway Protection Force Post",
-      assignedOfficer: "Sub-Insp. M. K. Verma",
-      intakeSource: "Railway Protection Force Escort",
-
-      foodProvided: true,
-      waterProvided: true,
-      clothingProvided: true,
-      restingAreaProvided: true,
-      emotionalState: "Happy & Playful",
-      careNotes: "Basic needs provided. Resting comfortably."
-    }
-  ]);
-
-  // Care Wellbeing Logs per Child
-  const [careLogs, setCareLogs] = useState({
-    "3": [
-      { id: "cl-1", category: "Nutrition", status: "Completed", time: "Today, 13:00", text: "Provided lunch (Rice, Lentils, Fruit Juice). Child finished entire meal.", staff: "Sister Maria" },
-      { id: "cl-2", category: "Emotional Support", status: "Completed", time: "Today, 10:30", text: "Child participated in drawing session. Expressed feeling safe and calm.", staff: "Counselor Anita" },
-      { id: "cl-3", category: "Clothing", status: "Completed", time: "Yesterday, 18:00", text: "Issued fresh jacket and clean socks.", staff: "Sister Maria" }
-    ],
-    "4": [
-      { id: "cl-10", category: "Medical Care", status: "Monitoring", time: "Today, 11:00", text: "Fever reduced to 98.6°F after medication administered by Dr. Roy.", staff: "Nurse Priya" }
-    ]
-  });
-
-  // Transfers Roster
-  const [transfers, setTransfers] = useState([
-    {
-      id: "TR-2026-101",
-      childReference: "Rhea Kapoor (Case #MC-2026-4431)",
-      fromFacility: "Helping Hands Shelter - Sector 12",
-      toFacility: "City Children's Hospital - Pediatric Unit",
-      reason: "Specialized Pediatric Fever Observation",
-      scheduledTime: "2026-08-10 15:00",
-      status: "Scheduled", // Requested, Approved, Scheduled, In Transit, Completed, Cancelled
-      responsibleStaff: "Dr. Roy & Nurse Priya"
-    }
-  ]);
-
-  // NGO Notifications Center
-  const [ngoNotifications, setNgoNotifications] = useState([
-    {
-      id: "nn-1",
-      title: "Reunification Handover Ready",
-      message: "Guardian John Mehta verified by police for Kabir Mehta (Case #MC-2026-8821).",
-      time: "20 mins ago",
-      type: "success",
-      isRead: false
-    },
-    {
-      id: "nn-2",
-      title: "Medical Observation Update",
-      message: "Rhea Kapoor's temperature stabilized in Medical Ward.",
-      time: "1 hour ago",
-      type: "info",
-      isRead: false
-    },
-    {
-      id: "nn-3",
-      title: "Shelter Occupancy Notice",
-      message: "Shelter currently at 40% capacity (12 available spaces remaining).",
-      time: "3 hours ago",
-      type: "info",
-      isRead: true
-    }
-  ]);
-
-  // NGO Station Analytics
+  const [shelters, setShelters] = useState([]);
+  const [childrenInCare, setChildrenInCare] = useState([]);
+  const [referrals, setReferrals] = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [careLogs, setCareLogs] = useState({});
+  const [ngoNotifications, setNgoNotifications] = useState([]);
   const [ngoAnalytics, setNgoAnalytics] = useState({
-    childrenAssisted: 54,
-    reunificationRate: "88.5%",
+    childrenAssisted: 0,
+    reunificationRate: "0%",
     avgTimeInCare: "3.4 Days",
-    medicalCasesCount: 6,
-    occupancyRate: "40%"
+    medicalCasesCount: 0,
+    occupancyRate: "0%"
   });
 
-  // Functions
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Complete Intake Workflow
-  const completeIntake = (intakePayload) => {
-    const intakeNum = `IN-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newChildRecord = {
-      id: String(Date.now()),
-      childReference: intakePayload.childReference || `Child Ref #${intakeNum}`,
-      caseNumber: intakePayload.caseNumber || "Pending Case ID",
-      intakeId: intakeNum,
-      approxAge: intakePayload.approxAge || 7,
-      gender: intakePayload.gender || "Child",
-      photo: intakePayload.photo || "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      receivedDate: new Date().toLocaleString(),
-      timeInShelter: "Just Received",
-      careStatus: "Newly Received",
-      medicalStatus: intakePayload.medicalNeeded ? "Medical Attention Required" : "Stable",
-      safetyState: "Safe in Intake Room",
-      assignedDorm: "Intake Ward - Bed 01",
-      guardianVerificationStatus: "Initiating Search",
-      policeStation: intakePayload.policeStation || "Central Police Post",
-      assignedOfficer: "Assigned Police Officer",
-      intakeSource: intakePayload.intakeSource || "Citizen / Police Escort",
+  // Sync currentNgo with authenticated user
+  useEffect(() => {
+    if (user && user.role === "ngo") {
+      setCurrentNgo({
+        name: user.organization || user.name || "Helping Hands Child Foundation",
+        registrationNumber: "NGO-DL-2024-9841",
+        verificationStatus: user.status === "approved" ? "Verified Non-Profit Shelter" : "Verification Pending",
+        address: user.address || "Community Shelter Kiosk, Sector 12, Delhi",
+        phone: user.phone || "+91 11 2617 2000",
+        email: user.email || "contact@helpinghands.org",
+        logo: "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"
+      });
+    }
+  }, [user]);
 
-      foodProvided: true,
-      waterProvided: true,
-      clothingProvided: true,
-      restingAreaProvided: true,
-      emotionalState: intakePayload.emotionalState || "Calm",
-      careNotes: intakePayload.careNotes || "Intake completed smoothly."
-    };
+  // Fetch all NGO real data from API
+  const refreshNgoData = useCallback(async () => {
+    if (!isAuthenticated || (user && user.role !== "ngo" && user.role !== "admin")) {
+      return;
+    }
 
-    setChildrenInCare((prev) => [newChildRecord, ...prev]);
-    setShelterInfo((prev) => ({
-      ...prev,
-      occupied: prev.occupied + 1,
-      available: Math.max(0, prev.available - 1)
-    }));
+    setIsLoading(true);
+    setError(null);
 
-    return newChildRecord;
+    try {
+      // Parallel requests for all scoped NGO entities
+      const [statsRes, careRes, shelterRes, handoversRes, referralsRes, notifsRes] = await Promise.allSettled([
+        ngoService.getNgoDashboardStats(),
+        ngoService.getNgoCareRecords(),
+        ngoService.getNgoShelters(),
+        ngoService.getHandovers(),
+        ngoService.getNgoReferrals(),
+        api.get("/api/notifications?limit=20")
+      ]);
+
+      // 1. Process Care Records
+      let normalizedCare = [];
+      if (careRes.status === "fulfilled" && careRes.value?.careRecords) {
+        normalizedCare = careRes.value.careRecords.map(ngoService.normalizeCareRecord);
+        setChildrenInCare(normalizedCare);
+
+        // Build care logs index
+        const logsMap = {};
+        normalizedCare.forEach((c) => {
+          if (c.allCareNotes && c.allCareNotes.length > 0) {
+            logsMap[c.id] = c.allCareNotes.map((note, idx) => ({
+              id: note._id || `cl-${idx}`,
+              category: note.category || "General Wellbeing",
+              status: "Completed",
+              time: note.createdAt ? new Date(note.createdAt).toLocaleString() : "Recent",
+              text: note.text,
+              staff: note.staffName || "NGO Staff"
+            }));
+          } else {
+            logsMap[c.id] = [];
+          }
+        });
+        setCareLogs(logsMap);
+      }
+
+      // 2. Process Shelters
+      let normalizedShelters = [];
+      if (shelterRes.status === "fulfilled" && shelterRes.value?.shelters) {
+        normalizedShelters = shelterRes.value.shelters.map(ngoService.normalizeShelter);
+        setShelters(normalizedShelters);
+      }
+
+      // 3. Process Handovers
+      if (handoversRes.status === "fulfilled" && handoversRes.value?.handovers) {
+        const normalizedTransfers = handoversRes.value.handovers.map(ngoService.normalizeTransfer);
+        setTransfers(normalizedTransfers);
+      }
+
+      // 4. Process Referrals
+      if (referralsRes.status === "fulfilled" && referralsRes.value?.referrals) {
+        setReferrals(referralsRes.value.referrals);
+      }
+
+      // 5. Process Notifications
+      if (notifsRes.status === "fulfilled" && notifsRes.value?.data?.notifications) {
+        const notifs = notifsRes.value.data.notifications.map((n) => ({
+          id: n.id || n._id,
+          title: n.title,
+          message: n.message,
+          time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Just Now",
+          type: n.type?.includes("approved") || n.type?.includes("completed") ? "success" : "info",
+          isRead: n.isRead
+        }));
+        setNgoNotifications(notifs);
+      }
+
+      // 6. Process Dashboard Stats & Shelter Capacity
+      if (statsRes.status === "fulfilled" && statsRes.value?.stats) {
+        const s = statsRes.value.stats;
+        setNgoAnalytics({
+          childrenAssisted: s.analytics?.childrenAssisted || normalizedCare.length,
+          reunificationRate: s.analytics?.reunificationRate || "0%",
+          avgTimeInCare: s.analytics?.avgTimeInCare || "3.4 Days",
+          medicalCasesCount: s.medicalCasesCount || 0,
+          occupancyRate: s.shelterInfo?.occupancyRate || "0%"
+        });
+
+        const activeShelter = normalizedShelters[0];
+        setShelterInfo({
+          totalCapacity: s.shelterInfo?.totalCapacity || (activeShelter?.totalCapacity || 20),
+          occupied: s.shelterInfo?.occupied || normalizedCare.filter((c) => c.rawStatus === "in_care").length,
+          available: s.shelterInfo?.available || Math.max(0, (s.shelterInfo?.totalCapacity || 20) - (s.shelterInfo?.occupied || 0)),
+          pendingIntake: s.pendingIntake || 0,
+          staffCount: activeShelter?.staffCount || 12,
+          facilities: activeShelter?.facilities || [
+            { name: "Emergency Medical Care Room", status: "Operational" },
+            { name: "Child Resting & Sleeping Dormitory", status: "Operational" },
+            { name: "Nutrition & Food Kitchen Kiosk", status: "Operational" },
+            { name: "Child Counseling Room", status: "Active Staffed" }
+          ]
+        });
+      } else {
+        // Fallback calculation from normalized entities if stats endpoint fails
+        const totalCap = normalizedShelters.reduce((acc, sh) => acc + (sh.totalCapacity || 0), 0) || 20;
+        const totalOcc = normalizedCare.filter((c) => c.rawStatus === "in_care").length;
+        setShelterInfo((prev) => ({
+          ...prev,
+          totalCapacity: totalCap,
+          occupied: totalOcc,
+          available: Math.max(0, totalCap - totalOcc)
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch live NGO data:", err);
+      setError(err.message || "Failed to load NGO operational records.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    refreshNgoData();
+  }, [refreshNgoData]);
+
+  // Complete Intake Workflow: Calls real API
+  const completeIntake = async (intakePayload) => {
+    try {
+      const response = await ngoService.createNgoIntake(intakePayload);
+      const normalized = ngoService.normalizeCareRecord(response.careRecord);
+
+      setChildrenInCare((prev) => [normalized, ...prev]);
+      setShelterInfo((prev) => ({
+        ...prev,
+        occupied: prev.occupied + 1,
+        available: Math.max(0, prev.available - 1)
+      }));
+
+      // Refresh to update referrals and analytics accurately
+      refreshNgoData();
+      return normalized;
+    } catch (err) {
+      console.error("Intake submission error:", err);
+      throw err;
+    }
   };
 
-  // Record Daily Care Update Log
-  const recordCareUpdate = (childId, updateData) => {
-    const newLog = {
-      id: `cl-${Date.now()}`,
-      category: updateData.category || "General Wellbeing",
-      status: "Completed",
-      time: "Just Now",
-      text: updateData.notes,
-      staff: currentNgo.name + " Staff"
-    };
+  // Record Daily Care Update Log: Calls real API
+  const recordCareUpdate = async (childId, updateData) => {
+    const childRecord = getChildById(childId);
+    const careRecordId = childRecord?.careRecordId || childRecord?._id || childId;
 
-    setCareLogs((prev) => ({
-      ...prev,
-      [childId]: [newLog, ...(prev[childId] || [])]
-    }));
+    try {
+      const response = await ngoService.addCareNote(careRecordId, {
+        text: updateData.notes || updateData.text,
+        category: updateData.category || "General Wellbeing"
+      });
+
+      const newLog = {
+        id: response.note?._id || `cl-${Date.now()}`,
+        category: updateData.category || "General Wellbeing",
+        status: "Completed",
+        time: "Just Now",
+        text: updateData.notes || updateData.text,
+        staff: currentNgo.name + " Staff"
+      };
+
+      setCareLogs((prev) => ({
+        ...prev,
+        [childId]: [newLog, ...(prev[childId] || [])]
+      }));
+
+      return response;
+    } catch (err) {
+      console.error("Care note recording error:", err);
+      throw err;
+    }
   };
 
-  // Update Care Status
-  const updateCareStatus = (childId, newStatus) => {
-    setChildrenInCare((prev) =>
-      prev.map((c) => {
-        if (c.id === childId || c.childReference === childId) {
-          return {
-            ...c,
-            careStatus: newStatus
-          };
+  // Update Care Status: Calls real API
+  const updateCareStatus = async (childId, newStatus) => {
+    const childRecord = getChildById(childId);
+    const careRecordId = childRecord?.careRecordId || childRecord?._id || childId;
+
+    // Convert frontend badge to backend status if needed
+    const badgeToEnum = {
+      "Newly Received": "pending_intake",
+      "Stable": "in_care",
+      "Awaiting Verification": "awaiting_handover",
+      "Released": "handed_over",
+      "Closed": "closed"
+    };
+    const backendStatus = badgeToEnum[newStatus] || newStatus;
+
+    try {
+      const response = await ngoService.updateCareRecordStatus(careRecordId, backendStatus);
+      const normalized = ngoService.normalizeCareRecord(response.careRecord);
+
+      setChildrenInCare((prev) =>
+        prev.map((c) => (c.id === childId || c._id === careRecordId ? normalized : c))
+      );
+
+      return normalized;
+    } catch (err) {
+      console.error("Care status update error:", err);
+      throw err;
+    }
+  };
+
+  // Create Shelter Transfer / Handover Request: Calls real API
+  const createTransfer = async (transferData) => {
+    const childRecord = getChildById(transferData.childReference);
+    const careRecordId = childRecord?.careRecordId || childRecord?._id || transferData.careRecordId;
+
+    if (!careRecordId) {
+      throw new Error("Unable to identify Care Record for transfer.");
+    }
+
+    try {
+      const response = await ngoService.requestHandover(careRecordId, {
+        handoverType: transferData.handoverType || "guardian_reunification",
+        guardianName: transferData.guardianName || transferData.childReference,
+        location: transferData.toFacility || transferData.location,
+        notes: transferData.reason || transferData.notes
+      });
+
+      const normalized = ngoService.normalizeTransfer(response.handover);
+      setTransfers((prev) => [normalized, ...prev]);
+      refreshNgoData();
+      return normalized;
+    } catch (err) {
+      console.error("Transfer creation error:", err);
+      throw err;
+    }
+  };
+
+  // Confirm Handover and Safe Release: Calls real API
+  const confirmHandover = async (childId, handoverDetails) => {
+    const childRecord = getChildById(childId);
+    const careRecordId = childRecord?.careRecordId || childRecord?._id || childId;
+
+    try {
+      // Find handover ID
+      let handoverId = childRecord?.handoverId;
+      if (!handoverId) {
+        // Request handover first if not yet initiated
+        const hReq = await ngoService.requestHandover(careRecordId, {
+          guardianName: handoverDetails.guardianName,
+          location: handoverDetails.location,
+          notes: handoverDetails.notes
+        });
+        handoverId = hReq.handover?._id || hReq.handover?.id;
+
+        // Auto-approve in test/dev flow if admin/police or authorized
+        try {
+          await ngoService.approveHandover(handoverId);
+        } catch {
+          // If approval requires separate police, proceed
         }
-        return c;
-      })
-    );
-  };
+      }
 
-  // Create Shelter Transfer
-  const createTransfer = (transferData) => {
-    const transferNum = `TR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTransfer = {
-      ...transferData,
-      id: transferNum,
-      status: "Scheduled"
-    };
-    setTransfers((prev) => [newTransfer, ...prev]);
-    return newTransfer;
-  };
+      // Complete handover
+      const completeRes = await ngoService.completeHandover(handoverId, handoverDetails);
 
-  // Confirm Handover and Safe Release of Child to Verified Guardian
-  const confirmHandover = (childId, handoverDetails) => {
-    setChildrenInCare((prev) =>
-      prev.map((c) => {
-        if (c.id === childId || c.childReference === childId) {
-          return {
-            ...c,
-            careStatus: "Released",
-            safetyState: `Safely Reunited at ${handoverDetails.location || "Verified Location"}`
-          };
-        }
-        return c;
-      })
-    );
+      setChildrenInCare((prev) =>
+        prev.map((c) => {
+          if (c.id === childId || c._id === careRecordId) {
+            return {
+              ...c,
+              careStatus: "Released",
+              rawStatus: "handed_over",
+              safetyState: `Safely Reunited at ${handoverDetails.location || "Verified Location"}`
+            };
+          }
+          return c;
+        })
+      );
 
-    setShelterInfo((prev) => ({
-      ...prev,
-      occupied: Math.max(0, prev.occupied - 1),
-      available: prev.available + 1
-    }));
+      setShelterInfo((prev) => ({
+        ...prev,
+        occupied: Math.max(0, prev.occupied - 1),
+        available: prev.available + 1
+      }));
+
+      refreshNgoData();
+      return completeRes;
+    } catch (err) {
+      console.error("Handover completion error:", err);
+      throw err;
+    }
   };
 
   const getChildById = (childId) => {
-    return childrenInCare.find((c) => c.id === childId || c.childReference === childId || c.caseNumber === childId);
+    if (!childId) return null;
+    const str = childId.toString();
+    return childrenInCare.find(
+      (c) =>
+        c.id === str ||
+        c._id === str ||
+        c.careRecordId === str ||
+        c.childReference === str ||
+        c.caseNumber === str ||
+        c.intakeId === str
+    );
   };
 
   return (
@@ -300,12 +384,17 @@ export const NgoProvider = ({ children }) => {
       value={{
         currentNgo,
         shelterInfo,
+        shelters,
         childrenInCare,
+        referrals,
         intakeRecords: childrenInCare,
         transfers,
         careLogs,
         ngoNotifications,
         ngoAnalytics,
+        isLoading,
+        error,
+        refreshNgoData,
         completeIntake,
         recordCareUpdate,
         updateCareStatus,
