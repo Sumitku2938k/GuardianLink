@@ -121,9 +121,17 @@ export default function NgoDashboard() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {childrenInCare.slice(0, 2).map((child) => (
-              <ChildCareCard key={child.id} child={child} />
-            ))}
+            {childrenInCare.length === 0 ? (
+              <div className="sm:col-span-2 p-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 space-y-2">
+                <Heart className="w-8 h-8 text-teal-500/40 mx-auto" />
+                <p className="font-semibold">No children currently in care.</p>
+                <p className="text-[11px] text-slate-400">Use Safe Intake to receive a child escorted by police or citizens.</p>
+              </div>
+            ) : (
+              childrenInCare.slice(0, 2).map((child) => (
+                <ChildCareCard key={child.id} child={child} />
+              ))
+            )}
           </div>
         </div>
 

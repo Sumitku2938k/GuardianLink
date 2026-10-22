@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileCheck,
   Search,
@@ -21,20 +21,29 @@ const INTAKE_STEPS = ["Case Lookup", "Child Condition", "Initial Assessment", "D
 
 export default function NgoIntakeWizard() {
   const navigate = useNavigate();
-  const { completeIntake } = useNgo();
+  const [searchParams] = useSearchParams();
+  const prefillCaseId = searchParams.get("caseId");
+
+  const { completeIntake, referrals, shelters } = useNgo();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [createdRecord, setCreatedRecord] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
-    caseNumber: "MC-2026-8821",
-    childReference: "Kabir Mehta",
-    approxAge: 10,
+    caseId: "",
+    caseNumber: "",
+    childId: "",
+    childReference: "",
+    approxAge: 7,
     gender: "Male",
     intakeSource: "Police Escort from Sector 12 Metro",
     policeStation: "Delhi Central Metro Police Post",
+    assignedOfficer: "Assigned Police Officer",
+    shelterId: shelters[0]?.id || "",
 
     // Step 2: Condition
     visibleInjuries: "None observed",
@@ -48,7 +57,7 @@ export default function NgoIntakeWizard() {
     waterProvided: true,
     clothingProvided: true,
     restingAreaProvided: true,
-    careNotes: "Child brought by Sub-Inspector. Provided warm dinner and resting space.",
+    careNotes: "Child brought by escort. Provided warm dinner and safe resting space.",
 
     // Step 4: Documents
     intakeDocUploaded: true,
@@ -57,23 +66,81 @@ export default function NgoIntakeWizard() {
     isConfirmed: false
   });
 
+  // Pre-fill if case was selected from referrals or query param
+  useEffect(() => {
+    if (referrals && referrals.length > 0) {
+      let targetCase = null;
+      if (prefillCaseId) {
+        targetCase = referrals.find((c) => c._id === prefillCaseId || c.id === prefillCaseId || c.caseNumber === prefillCaseId);
+      }
+      if (!targetCase && !formData.caseId) {
+        targetCase = referrals[0];
+      }
+
+      if (targetCase && !formData.caseId) {
+        setFormData((prev) => ({
+          ...prev,
+          caseId: targetCase._id || targetCase.id,
+          caseNumber: targetCase.caseNumber || `MC-${(targetCase._id || "").slice(-6).toUpperCase()}`,
+          childId: targetCase.childId?._id || targetCase.childId?.id || targetCase.childId || "",
+          childReference: targetCase.childId?.fullName || targetCase.childId?.name || targetCase.childName || "Child",
+          approxAge: targetCase.childId?.age || targetCase.childAge || 7,
+          gender: targetCase.childId?.gender || "Male",
+          policeStation: targetCase.lastSeenLocation?.city ? `${targetCase.lastSeenLocation.city} Police Station` : "Central Police Post",
+          assignedOfficer: targetCase.assignedOfficer?.name || "Assigned Officer",
+          shelterId: prev.shelterId || (shelters[0]?.id || "")
+        }));
+      }
+    }
+  }, [referrals, prefillCaseId, shelters]);
+
+  const handleSelectReferral = (caseItem) => {
+    setFormData((prev) => ({
+      ...prev,
+      caseId: caseItem._id || caseItem.id,
+      caseNumber: caseItem.caseNumber || `MC-${(caseItem._id || "").slice(-6).toUpperCase()}`,
+      childId: caseItem.childId?._id || caseItem.childId?.id || caseItem.childId || "",
+      childReference: caseItem.childId?.fullName || caseItem.childId?.name || caseItem.childName || "Child",
+      approxAge: caseItem.childId?.age || caseItem.childAge || 7,
+      gender: caseItem.childId?.gender || "Male",
+      policeStation: caseItem.lastSeenLocation?.city ? `${caseItem.lastSeenLocation.city} Police Station` : "Central Police Post",
+      assignedOfficer: caseItem.assignedOfficer?.name || "Assigned Officer"
+    }));
+  };
+
   const handleNext = () => {
+    setErrorMessage("");
+    if (currentStep === 1 && !formData.caseId) {
+      setErrorMessage("Please select or specify a valid authorized missing case for intake.");
+      return;
+    }
     if (currentStep < 5) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const handleBack = () => {
+    setErrorMessage("");
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const result = completeIntake(formData);
-    setCreatedRecord(result);
-    setIsSuccess(true);
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      const result = await completeIntake(formData);
+      setCreatedRecord(result);
+      setIsSuccess(true);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to complete intake.";
+      setErrorMessage(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -87,6 +154,13 @@ export default function NgoIntakeWizard() {
         <p className="text-xs text-slate-550 dark:text-slate-400">Register arrival of a child brought to NGO shelter by police or citizens.</p>
       </div>
 
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
       {!isSuccess ? (
         <>
           {/* Step Indicator */}
@@ -97,19 +171,56 @@ export default function NgoIntakeWizard() {
             {currentStep === 1 && (
               <div className="space-y-4 text-xs">
                 <h3 className="text-sm font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider font-mono">
-                  Step 1: Case Identification & Lookup
+                  Step 1: Authorized Case Identification & Referral
                 </h3>
+
+                {referrals && referrals.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold uppercase block">
+                      Select From Authorized Case Referrals
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                      {referrals.map((refCase) => {
+                        const isSelected = formData.caseId === (refCase._id || refCase.id);
+                        return (
+                          <div
+                            key={refCase._id || refCase.id}
+                            onClick={() => handleSelectReferral(refCase)}
+                            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-teal-500/15 border-teal-500 dark:border-teal-400 ring-1 ring-teal-500"
+                                : "bg-gray-50 dark:bg-slate-950 border-gray-200 dark:border-slate-800 hover:border-teal-400"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="font-mono font-bold text-teal-650 dark:text-teal-300 text-[11px]">
+                                {refCase.caseNumber || `MC-${(refCase._id || "").slice(-6).toUpperCase()}`}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-slate-500">{refCase.status}</span>
+                            </div>
+                            <strong className="block text-slate-850 dark:text-white text-xs">
+                              {refCase.childId?.fullName || refCase.childId?.name || "Child Reference"}
+                            </strong>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                              Age: {refCase.childId?.age || "Unknown"} • {refCase.lastSeenLocation?.city || "Area"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-3 bg-gray-50 dark:bg-slate-950 rounded-2xl border border-gray-150 dark:border-slate-800 space-y-3">
                   <Input
-                    label="Search Case Number (e.g. MC-2026-8821) or Found Report ID"
+                    label="Active Case Number (e.g. MC-2026-8821)"
                     value={formData.caseNumber}
                     onChange={(e) => setFormData({ ...formData, caseNumber: e.target.value })}
                     required
                   />
 
                   <Input
-                    label="Child Reference / Name (if known)"
+                    label="Child Reference / Name"
                     value={formData.childReference}
                     onChange={(e) => setFormData({ ...formData, childReference: e.target.value })}
                     required
@@ -134,6 +245,25 @@ export default function NgoIntakeWizard() {
                     />
                   </div>
                 </div>
+
+                {shelters && shelters.length > 0 && (
+                  <div>
+                    <label className="text-[11px] font-mono text-slate-550 dark:text-slate-400 font-bold uppercase block mb-1">
+                      Target Shelter Facility
+                    </label>
+                    <select
+                      value={formData.shelterId}
+                      onChange={(e) => setFormData({ ...formData, shelterId: e.target.value })}
+                      className="w-full py-2.5 px-3 text-xs rounded-xl bg-white dark:bg-slate-950 text-slate-850 dark:text-white border border-gray-200 dark:border-slate-800 outline-none"
+                    >
+                      {shelters.map((s) => (
+                        <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-850 dark:text-white">
+                          {s.name} ({s.available} beds available / {s.totalCapacity} total)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -188,19 +318,19 @@ export default function NgoIntakeWizard() {
                   <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-bold uppercase block">Basic Needs Provided</span>
                   <div className="grid grid-cols-2 gap-2 font-bold text-slate-700 dark:text-slate-200">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={formData.foodProvided} readOnly className="accent-teal-555" />
+                      <input type="checkbox" checked={formData.foodProvided} onChange={(e) => setFormData({ ...formData, foodProvided: e.target.checked })} className="accent-teal-555" />
                       <span>Food & Meals Provided</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={formData.waterProvided} readOnly className="accent-teal-555" />
+                      <input type="checkbox" checked={formData.waterProvided} onChange={(e) => setFormData({ ...formData, waterProvided: e.target.checked })} className="accent-teal-555" />
                       <span>Drinking Water Provided</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={formData.clothingProvided} readOnly className="accent-teal-555" />
+                      <input type="checkbox" checked={formData.clothingProvided} onChange={(e) => setFormData({ ...formData, clothingProvided: e.target.checked })} className="accent-teal-555" />
                       <span>Clean Clothing Provided</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={formData.restingAreaProvided} readOnly className="accent-teal-555" />
+                      <input type="checkbox" checked={formData.restingAreaProvided} onChange={(e) => setFormData({ ...formData, restingAreaProvided: e.target.checked })} className="accent-teal-555" />
                       <span>Resting Dormitory Assigned</span>
                     </label>
                   </div>
@@ -226,8 +356,8 @@ export default function NgoIntakeWizard() {
 
                 <div className="p-6 border-2 border-dashed border-gray-200 dark:border-slate-800 rounded-2xl bg-gray-50 dark:bg-slate-950 text-center space-y-2">
                   <Upload className="w-8 h-8 text-teal-500 dark:text-teal-400 mx-auto" />
-                  <strong className="block text-slate-800 dark:text-white">Upload Police Escort Form / Medical Slip</strong>
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">PDF, JPG, PNG up to 10MB</span>
+                  <strong className="block text-slate-850 dark:text-white">Police Escort Memo / Medical Observation Record</strong>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block">Verified operational documentation on intake</span>
                 </div>
               </div>
             )}
@@ -235,24 +365,25 @@ export default function NgoIntakeWizard() {
             {currentStep === 5 && (
               <div className="space-y-4 text-xs">
                 <h3 className="text-sm font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider font-mono">
-                  Step 5: Review & Confirm Intake
+                  Step 5: Review & Confirm Safe Intake
                 </h3>
 
                 <div className="p-4 bg-gray-50 dark:bg-slate-950 rounded-2xl border border-gray-150 dark:border-slate-800 space-y-2">
                   <div><span className="text-slate-500 dark:text-slate-400">Case ID:</span> <strong className="text-slate-850 dark:text-white ml-2">{formData.caseNumber}</strong></div>
                   <div><span className="text-slate-500 dark:text-slate-400">Child Ref:</span> <strong className="text-teal-650 dark:text-teal-300 ml-2">{formData.childReference}</strong></div>
                   <div><span className="text-slate-500 dark:text-slate-400">Intake Source:</span> <strong className="text-slate-850 dark:text-white ml-2">{formData.intakeSource}</strong></div>
+                  <div><span className="text-slate-500 dark:text-slate-400">Police Escort:</span> <strong className="text-slate-850 dark:text-white ml-2">{formData.assignedOfficer} ({formData.policeStation})</strong></div>
                 </div>
 
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-teal-650 dark:text-teal-300 pt-2">
                   <input
                     type="checkbox"
                     checked={formData.isConfirmed}
-                    onChange={(e) => setFormData({ ...formData, isConfirmed: e.target.value === "on" || e.target.checked })}
+                    onChange={(e) => setFormData({ ...formData, isConfirmed: e.target.checked })}
                     className="w-4 h-4 accent-teal-500 rounded"
                     required
                   />
-                  <span>I confirm that the information recorded above is accurate to the best of my knowledge.</span>
+                  <span>I confirm that this child has been safely received into NGO temporary shelter care.</span>
                 </label>
               </div>
             )}
@@ -275,7 +406,8 @@ export default function NgoIntakeWizard() {
                 <Button
                   type="submit"
                   variant="primary"
-                  isDisabled={!formData.isConfirmed}
+                  isLoading={isSubmitting}
+                  isDisabled={!formData.isConfirmed || isSubmitting}
                   className="bg-emerald-500 text-slate-955 font-bold hover:bg-emerald-400"
                   leftIcon={CheckCircle2}
                 >
@@ -294,11 +426,11 @@ export default function NgoIntakeWizard() {
 
           <h2 className="text-2xl font-black text-slate-850 dark:text-white">Child Successfully Received</h2>
           <p className="text-xs text-slate-550 dark:text-slate-400 max-w-sm mx-auto">
-            Intake Record <strong>#{createdRecord?.intakeId}</strong> created for <strong>{createdRecord?.childReference}</strong>.
+            Intake Record <strong>#{createdRecord?.intakeId}</strong> registered for <strong>{createdRecord?.childReference}</strong> in temporary care.
           </p>
 
           <div className="flex justify-center gap-3 pt-4">
-            <Button onClick={() => navigate(`/ngo/children/${createdRecord?.id}`)} variant="primary" className="bg-teal-500 text-slate-950 font-bold hover:bg-teal-400">
+            <Button onClick={() => navigate(`/ngo/children/${createdRecord?.id || createdRecord?._id}`)} variant="primary" className="bg-teal-500 text-slate-950 font-bold hover:bg-teal-400">
               View Child Care Record
             </Button>
             <Button onClick={() => navigate("/ngo/dashboard")} variant="outline">

@@ -24,38 +24,46 @@ export default function NgoCasesList() {
       </div>
 
       <div className="space-y-4">
-        {childrenInCare.map((c) => (
-          <div key={c.id} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 space-y-3 shadow-md">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-teal-650 dark:text-teal-300 text-xs">Case #{c.caseNumber}</span>
-                <CareStatusBadge status={c.careStatus} />
-              </div>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Intake #{c.intakeId}</span>
-            </div>
-
-            <div className="flex items-start gap-4 text-xs">
-              <img src={c.photo} alt={c.childReference} className="w-16 h-16 rounded-xl object-cover ring-2 ring-gray-150 dark:ring-slate-800 shrink-0" />
-              <div className="space-y-1 flex-1">
-                <h4 className="text-sm font-bold text-slate-805 dark:text-white">{c.childReference}</h4>
-                <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-                  Police Lead: <strong>{c.assignedOfficer} ({c.policeStation})</strong>
-                </p>
-                <span className="text-[10px] text-teal-650 dark:text-teal-300 font-semibold block">Verification: {c.guardianVerificationStatus}</span>
-              </div>
-
-              <Button
-                onClick={() => navigate(`/ngo/cases/${c.caseNumber}`)}
-                variant="primary"
-                size="sm"
-                className="bg-teal-500 text-slate-950 font-bold hover:bg-teal-400 text-xs"
-                leftIcon={Eye}
-              >
-                View NGO Case
-              </Button>
-            </div>
+        {childrenInCare.length === 0 ? (
+          <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 space-y-2">
+            <HeartHandshake className="w-8 h-8 text-teal-500/40 mx-auto" />
+            <p className="font-semibold">No active cases under care.</p>
+            <p className="text-[11px] text-slate-400">Cases will appear here once intake is registered.</p>
           </div>
-        ))}
+        ) : (
+          childrenInCare.map((c) => (
+            <div key={c.id} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 space-y-3 shadow-md">
+              <div className="flex justify-between items-center pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-teal-650 dark:text-teal-300 text-xs">Case #{c.caseNumber}</span>
+                  <CareStatusBadge status={c.careStatus} />
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Intake #{c.intakeId}</span>
+              </div>
+
+              <div className="flex items-start gap-4 text-xs">
+                <img src={c.photo} alt={c.childReference} className="w-16 h-16 rounded-xl object-cover ring-2 ring-gray-150 dark:ring-slate-800 shrink-0" />
+                <div className="space-y-1 flex-1">
+                  <h4 className="text-sm font-bold text-slate-805 dark:text-white">{c.childReference}</h4>
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    Police Lead: <strong>{c.assignedOfficer} ({c.policeStation})</strong>
+                  </p>
+                  <span className="text-[10px] text-teal-650 dark:text-teal-300 font-semibold block">Verification: {c.guardianVerificationStatus}</span>
+                </div>
+
+                <Button
+                  onClick={() => navigate(`/ngo/cases/${c.caseNumber}`)}
+                  variant="primary"
+                  size="sm"
+                  className="bg-teal-500 text-slate-950 font-bold hover:bg-teal-400 text-xs"
+                  leftIcon={Eye}
+                >
+                  View NGO Case
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

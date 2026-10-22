@@ -28,11 +28,42 @@ export default function NgoChildProfile() {
   const navigate = useNavigate();
 
   const { getChildById, careLogs, recordCareUpdate, confirmHandover } = useNgo();
-  const child = getChildById(childId);
+  const contextChild = getChildById(childId);
+  const [directChild, setDirectChild] = useState(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState(!contextChild);
+
+  useEffect(() => {
+    if (!contextChild && childId) {
+      setIsFetchingDirect(true);
+      ngoService
+        .getNgoCareRecordById(childId)
+        .then((res) => {
+          if (res?.careRecord) {
+            setDirectChild(ngoService.normalizeCareRecord(res.careRecord));
+          }
+        })
+        .catch((err) => {
+          console.error("Direct fetch care record failed:", err);
+        })
+        .finally(() => {
+          setIsFetchingDirect(false);
+        });
+    }
+  }, [contextChild, childId]);
+
+  const child = contextChild || directChild;
 
   const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'care' | 'medical' | 'documents' | 'timeline' | 'coordination'
   const [isCareModalOpen, setIsCareModalOpen] = useState(false);
   const [isHandoverModalOpen, setIsHandoverModalOpen] = useState(false);
+
+  if (isFetchingDirect) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-sm font-mono text-slate-500">Loading child care record...</h3>
+      </div>
+    );
+  }
 
   if (!child) {
     return (
@@ -45,7 +76,13 @@ export default function NgoChildProfile() {
     );
   }
 
-  const logs = careLogs[child.id] || [];
+  const logs = (careLogs && careLogs[child.id]) || (child.allCareNotes && child.allCareNotes.map((n, i) => ({
+    id: n._id || `cl-${i}`,
+    category: n.category || "General Wellbeing",
+    time: n.createdAt ? new Date(n.createdAt).toLocaleString() : "Recent",
+    text: n.text,
+    staff: n.staffName || "NGO Staff"
+  }))) || [];
 
   return (
     <div className="space-y-6">
