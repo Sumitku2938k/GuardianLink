@@ -19,7 +19,7 @@ const caseRoutes = require("./routes/caseRoutes");
 const citizenRoutes = require("./routes/citizenRoutes");
 const sightingRoutes = require("./routes/sightingRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-
+const ngoRoutes = require("./routes/ngoRoutes");
 
 // Middleware Imports
 const errorHandler = require("./middleware/errorHandler");
@@ -78,6 +78,7 @@ app.use("/api/cases", caseRoutes);
 app.use("/api/citizen", citizenRoutes);
 app.use("/api/sightings", sightingRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/ngo", ngoRoutes);
 
 
 // Catch 404 & forward to error handler
