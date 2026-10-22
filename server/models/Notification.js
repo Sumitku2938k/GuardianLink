@@ -27,9 +27,15 @@ const notificationSchema = new mongoose.Schema(
           "sighting_reviewed",
           "case_updated",
           "match_flagged",
-          "system_alert"
+          "system_alert",
+          "care_intake",
+          "care_status_updated",
+          "handover_requested",
+          "handover_approved",
+          "handover_completed",
+          "handover_rejected"
         ],
-        message: "Notification type must be sighting_reported, sighting_reviewed, case_updated, match_flagged, or system_alert"
+        message: "Invalid notification type"
       },
       required: [true, "Notification type is required"],
       index: true
@@ -60,6 +66,21 @@ const notificationSchema = new mongoose.Schema(
       childId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Child",
+        default: null
+      },
+      careRecordId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CareRecord",
+        default: null
+      },
+      handoverId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Handover",
+        default: null
+      },
+      shelterId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Shelter",
         default: null
       },
       caseNumber: {
