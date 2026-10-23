@@ -27,6 +27,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useChildren } from "@/context/ChildrenContext";
 import { useMissingCases } from "@/context/MissingCasesContext";
+import { useRealtime } from "@/context/RealtimeContext";
 
 // Components
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -56,6 +57,7 @@ export default function Dashboard({ defaultTab }) {
   // Consume Centralized State
   const { children: childrenList, addChild: handleRegisterSuccess } = useChildren();
   const { missingCases } = useMissingCases();
+  const { notifications } = useRealtime();
 
   // Modal States
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -368,7 +370,7 @@ export default function Dashboard({ defaultTab }) {
 
           {/* Notification Widget full section */}
           <div className="pt-4">
-            <NotificationWidget notifications={dynamicNotifications} />
+            <NotificationWidget notifications={notifications} />
           </div>
         </motion.div>
       )}
@@ -513,6 +515,27 @@ export default function Dashboard({ defaultTab }) {
               </Button>
             </div>
           </Card>
+        </motion.div>
+      )}
+
+      {/* TAB: NOTIFICATIONS / ALERTS */}
+      {activeTab === "notifications" && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6 max-w-4xl"
+        >
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Bell className="w-6 h-6 text-primary" />
+              <span>Safety Alerts & Notifications</span>
+            </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Live updates on missing cases, citizen sightings, and police investigations
+            </p>
+          </div>
+
+          <NotificationWidget notifications={notifications} />
         </motion.div>
       )}
 
