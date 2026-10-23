@@ -2,9 +2,11 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, Menu, Building2, User, LogOut, ChevronDown, Heart } from "lucide-react";
 import { NgoSearchModal } from "./NgoSearchModal";
+import { useRealtime } from "@/context/RealtimeContext";
 
 export const NgoTopNavbar = ({ onOpenMobileSidebar, currentNgo, onLogout }) => {
   const navigate = useNavigate();
+  const { unreadCount } = useRealtime();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -63,9 +65,14 @@ export const NgoTopNavbar = ({ onOpenMobileSidebar, currentNgo, onLogout }) => {
           <button
             onClick={() => navigate("/ngo/notifications")}
             className="relative p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "Notifications"}
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-teal-500 dark:bg-teal-400 ring-2 ring-white dark:ring-slate-900" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-teal-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-slate-900 animate-pulse">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </button>
 
           {/* NGO Profile Menu Trigger */}

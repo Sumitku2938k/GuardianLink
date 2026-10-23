@@ -17,22 +17,51 @@ import {
   HeartHandshake
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-
-export const NGO_MENU_ITEMS = [
-  { id: "dashboard", path: "/ngo/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "children", path: "/ngo/children", label: "Children in Care", icon: Heart, badge: "8", badgeVariant: "primary" },
-  { id: "intake", path: "/ngo/intake", label: "Safe Intake Wizard", icon: FileCheck, badge: "New" },
-  { id: "cases", path: "/ngo/cases", label: "Active Cases", icon: HeartHandshake, badge: "3" },
-  { id: "shelter", path: "/ngo/shelter", label: "Shelter Capacity", icon: Building2 },
-  { id: "transfers", path: "/ngo/transfers", label: "Shelter Transfers", icon: ArrowLeftRight, badge: "1" },
-  { id: "notifications", path: "/ngo/notifications", label: "Notifications", icon: Bell, badge: "3" },
-  { id: "analytics", path: "/ngo/analytics", label: "Care Analytics", icon: BarChart3 },
-  { id: "profile", path: "/ngo/profile", label: "Organization Profile", icon: User }
-];
+import { useNgo } from "@/context/NgoContext";
+import { useRealtime } from "@/context/RealtimeContext";
 
 export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { unreadCount } = useRealtime();
+  const { childrenInCare, referrals, handovers, ngoNotifications, shelterInfo } = useNgo();
+
+  const menuItems = [
+    { id: "dashboard", path: "/ngo/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    {
+      id: "children",
+      path: "/ngo/children",
+      label: "Children in Care",
+      icon: Heart,
+      badge: childrenInCare.length > 0 ? String(childrenInCare.length) : null,
+      badgeVariant: "primary"
+    },
+    { id: "intake", path: "/ngo/intake", label: "Safe Intake Wizard", icon: FileCheck },
+    {
+      id: "cases",
+      path: "/ngo/cases",
+      label: "Active Cases",
+      icon: HeartHandshake,
+      badge: referrals.length > 0 ? String(referrals.length) : null
+    },
+    { id: "shelter", path: "/ngo/shelter", label: "Shelter Capacity", icon: Building2 },
+    {
+      id: "transfers",
+      path: "/ngo/transfers",
+      label: "Shelter Transfers",
+      icon: ArrowLeftRight,
+      badge: handovers.length > 0 ? String(handovers.length) : null
+    },
+    {
+      id: "notifications",
+      path: "/ngo/notifications",
+      label: "Notifications",
+      icon: Bell,
+      badge: unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : (ngoNotifications.length > 0 ? String(ngoNotifications.length) : null)
+    },
+    { id: "analytics", path: "/ngo/analytics", label: "Care Analytics", icon: BarChart3 },
+    { id: "profile", path: "/ngo/profile", label: "Organization Profile", icon: User }
+  ];
 
   return (
     <>
@@ -85,7 +114,7 @@ export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
 
           {/* Navigation Links */}
           <nav className="p-3 space-y-1">
-            {NGO_MENU_ITEMS.map((item) => {
+            {menuItems.map((item) => {
               const isActive = location.pathname === item.path || (item.path !== "/ngo/dashboard" && location.pathname.startsWith(item.path));
               const ItemIcon = item.icon;
 

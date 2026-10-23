@@ -4,11 +4,13 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopNavbar } from "@/components/dashboard/TopNavbar";
 
 import { useAuth } from "@/context/AuthContext";
+import { useRealtime } from "@/context/RealtimeContext";
 
 export const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { unreadCount } = useRealtime();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const userDisplay = user
@@ -89,7 +91,7 @@ export const DashboardLayout = () => {
           onLogout={handleLogout}
           onOpenNotifications={() => navigate("/parent/notifications")}
           user={userDisplay}
-          unreadCount={0}
+          unreadCount={unreadCount}
         />
 
         {/* Dynamic Outlet for Nested Views */}

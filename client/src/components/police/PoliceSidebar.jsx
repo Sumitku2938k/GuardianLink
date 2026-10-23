@@ -19,10 +19,12 @@ import {
 import { Badge } from "@/components/ui/Badge";
 
 import { usePolice } from "@/context/PoliceContext";
+import { useRealtime } from "@/context/RealtimeContext";
 
 export const PoliceSidebar = ({ isOpen, onClose, currentOfficer, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { unreadCount } = useRealtime();
   const { policeCases, foundReports, potentialMatches, policeNotifications, currentStation } = usePolice();
 
   const firstCaseId = policeCases[0]?.id;
@@ -61,7 +63,7 @@ export const PoliceSidebar = ({ isOpen, onClose, currentOfficer, onLogout }) => 
       path: "/police/notifications",
       label: "Notifications",
       icon: Bell,
-      badge: policeNotifications.length > 0 ? String(policeNotifications.length) : null
+      badge: unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : (policeNotifications.length > 0 ? String(policeNotifications.length) : null)
     },
     { id: "profile", path: "/police/profile", label: "Officer Profile", icon: User }
   ];
