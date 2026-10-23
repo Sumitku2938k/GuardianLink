@@ -91,14 +91,30 @@ app.use((req, res, next) => {
 // Mount Global Error Handler
 app.use(errorHandler);
 
+const http = require("http");
+const { initSocket } = require("./config/socket");
+
+// Create HTTP server wrapping Express app
+const server = http.createServer(app);
+
+// Initialize Socket.IO with authenticated user rooms
+const io = initSocket(server);
+app.set("io", io);
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`=============================================`);
-  console.log(`🛡️  GuardianLink Full-Stack Server Started`);
-  console.log(`📡 API Running on : http://localhost:${PORT}`);
-  console.log(`⚙️  Environment : ${process.env.NODE_ENV || "development"}`);
-  console.log(`=============================================`);
-});
+if (process.env.NODE_ENV !== "test") {
+  server.listen(PORT, () => {
+    console.log(`=============================================`);
+    console.log(`🛡️  GuardianLink Full-Stack Server Started`);
+    console.log(`📡 API Running on : http://localhost:${PORT}`);
+    console.log(`⚡ WebSocket Server Active (Socket.IO)`);
+    console.log(`⚙️  Environment : ${process.env.NODE_ENV || "development"}`);
+    console.log(`=============================================`);
+  });
+}
 
 module.exports = app;
+module.exports.server = server;
+module.exports.app = app;
+

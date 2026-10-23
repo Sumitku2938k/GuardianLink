@@ -22,10 +22,12 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.2",
     "multer": "^2.4.0",
-    "redis": "^6.2.1"
+    "redis": "^6.2.1",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "socket.io-client": "^4.8.4"
   },
   "author": "GuardianLink Team",
   "license": "ISC"
