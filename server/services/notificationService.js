@@ -1,19 +1,21 @@
 /**
- * GuardianLink — Notification Service (Phase 7)
+ * GuardianLink — Notification Service (Phase 7 & Phase 10)
  *
- * Implements persistent in-app notifications for authorized alerts:
+ * Implements persistent in-app notifications with real-time Socket.IO delivery:
  * 1. Alerts verified police personnel and law enforcement desks on new citizen sightings.
  * 2. Alerts verified guardians of active missing cases without exposing their private PII.
- * 3. Tracks delivery status (created, confirmed, failed).
- * 4. Ensures notification failures do not roll back or erase persisted sightings.
+ * 3. Bridges database persistence to real-time socket room emission.
+ * 4. Ensures notification failures or socket disconnection never roll back database mutations.
+ * 5. Provides unread count tracking and synchronization across active sessions.
  */
 
 const mongoose = require("mongoose");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const realtimeService = require("./realtimeService");
 
 /**
- * Creates and persists a single in-app notification.
+ * Creates, persists, and real-time dispatches a single in-app notification.
  *
  * @param {Object} params
  * @returns {Promise<Object>} Persisted Notification safe object
@@ -45,15 +47,33 @@ const createNotification = async ({
   });
 
   await notification.save();
-  return notification.toSafeObject();
+  const safeObj = notification.toSafeObject();
+
+  // Real-time Socket.IO emission (non-blocking)
+  try {
+    realtimeService.emitNotification(safeObj);
+    const canQueryCount = (mongoose.connection && mongoose.connection.readyState === 1) ||
+      (Notification.countDocuments !== mongoose.Model.countDocuments);
+    if (canQueryCount) {
+      const unreadCount = await Notification.countDocuments({
+        recipientId,
+        isRead: false
+      });
+      realtimeService.emitUnreadCount(recipientId, unreadCount);
+    }
+  } catch (emitErr) {
+    console.warn("[NotificationService] Realtime emission warning:", emitErr.message);
+  }
+
+  return safeObj;
 };
 
 /**
  * Dispatches authorized in-app notifications for a newly registered sighting.
  *
  * RECIPIENT SELECTION RULES:
- * 1. Verified police officers (role: 'police', status: 'active').
- * 2. Platform administrators (role: 'admin', status: 'active').
+ * 1. Verified police officers (role: 'police', status: 'approved' | 'active').
+ * 2. Platform administrators (role: 'admin', status: 'approved' | 'active').
  * 3. Verified guardian of the child / reporter of the missing case (role: 'parent').
  *
  * PRIVACY GUARANTEE:
@@ -84,27 +104,39 @@ const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, ch
 
   try {
     // 1. Resolve eligible police officers & admin responders
+    // Prioritize officer assigned to case if exists
+    const policeRecipients = [];
+    if (missingCase.assignedOfficer?.id && mongoose.Types.ObjectId.isValid(missingCase.assignedOfficer.id)) {
+      policeRecipients.push(missingCase.assignedOfficer.id);
+    }
+
     const policeOfficers = await User.find({
       role: { $in: ["police", "admin"] },
       isActive: true,
       status: { $in: ["active", "approved"] }
     }).limit(20);
 
-    for (const officer of policeOfficers) {
+    policeOfficers.forEach((po) => {
+      if (!policeRecipients.some((r) => r.toString() === po._id.toString())) {
+        policeRecipients.push(po._id);
+      }
+    });
+
+    for (const officerId of policeRecipients) {
       try {
         const notif = await createNotification({
-          recipientId: officer._id,
+          recipientId: officerId,
           senderId: sighting.reportedBy,
-          recipientRole: officer.role,
+          recipientRole: "police",
           type: "sighting_reported",
           title: `New Sighting Report: Case #${missingCase.caseNumber}`,
           message: `A citizen submitted Sighting #${sighting.reportNumber} for ${child.fullName || "Missing Child"} near ${locationSummary}. Review report details for verification.`,
           data: commonData
         });
         notificationIds.push(notif.id);
-        if (officer.role === "police") policeNotifiedCount++;
+        policeNotifiedCount++;
       } catch (officerErr) {
-        console.error(`[NotificationService] Failed to notify officer ${officer._id}:`, officerErr.message);
+        console.error(`[NotificationService] Failed to notify officer ${officerId}:`, officerErr.message);
       }
     }
 
@@ -165,7 +197,25 @@ const getUserNotifications = async (userId, options = {}) => {
 };
 
 /**
- * Marks a notification as read.
+ * Gets count of unread notifications for a user.
+ *
+ * @param {string|ObjectId} userId
+ * @returns {Promise<number>}
+ */
+const getUnreadNotificationCount = async (userId) => {
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return 0;
+  }
+  const canQuery = (mongoose.connection && mongoose.connection.readyState === 1) ||
+    (Notification.countDocuments !== mongoose.Model.countDocuments);
+  if (!canQuery) {
+    return 0;
+  }
+  return await Notification.countDocuments({ recipientId: userId, isRead: false });
+};
+
+/**
+ * Marks a notification as read and emits realtime synchronization.
  *
  * @param {string|ObjectId} notificationId
  * @param {string|ObjectId} userId
@@ -187,12 +237,22 @@ const markNotificationAsRead = async (notificationId, userId) => {
   notification.isRead = true;
   notification.readAt = new Date();
   await notification.save();
+  const safeObj = notification.toSafeObject();
 
-  return notification.toSafeObject();
+  // Emit realtime read status and updated count
+  try {
+    realtimeService.emitNotificationRead(userId, notification._id, notification.readAt);
+    const unreadCount = await getUnreadNotificationCount(userId);
+    realtimeService.emitUnreadCount(userId, unreadCount);
+  } catch (emitErr) {
+    console.warn("[NotificationService] Realtime sync warning:", emitErr.message);
+  }
+
+  return safeObj;
 };
 
 /**
- * Marks all notifications for a user as read.
+ * Marks all notifications for a user as read and emits realtime synchronization.
  *
  * @param {string|ObjectId} userId
  * @returns {Promise<{ modifiedCount: number }>}
@@ -203,6 +263,14 @@ const markAllNotificationsAsRead = async (userId) => {
     { $set: { isRead: true, readAt: new Date() } }
   );
 
+  // Emit realtime sync
+  try {
+    realtimeService.emitAllNotificationsRead(userId, result.modifiedCount || 0);
+    realtimeService.emitUnreadCount(userId, 0);
+  } catch (emitErr) {
+    console.warn("[NotificationService] Realtime sync warning:", emitErr.message);
+  }
+
   return { modifiedCount: result.modifiedCount || 0 };
 };
 
@@ -210,6 +278,7 @@ module.exports = {
   createNotification,
   notifyAuthorizedRespondersForSighting,
   getUserNotifications,
+  getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead
 };

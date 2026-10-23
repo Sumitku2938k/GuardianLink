@@ -1,10 +1,11 @@
 /**
- * GuardianLink — Notification Controller (Phase 7)
+ * GuardianLink — Notification Controller (Phase 7 & Phase 10)
  *
  * Exposes in-app alert endpoints:
- * 1. GET /api/notifications — Retrieve user's in-app notifications
- * 2. PATCH /api/notifications/:id/read — Mark single notification read
- * 3. PATCH /api/notifications/read-all — Mark all user notifications read
+ * 1. GET   /api/notifications              — Retrieve user's in-app notifications
+ * 2. GET   /api/notifications/unread-count — Retrieve unread notification count
+ * 3. PATCH /api/notifications/:id/read     — Mark single notification read
+ * 4. PATCH /api/notifications/read-all     — Mark all user notifications read
  */
 
 const notificationService = require("../services/notificationService");
@@ -28,6 +29,24 @@ exports.getNotifications = async (req, res, next) => {
       success: true,
       count: notifications.length,
       notifications
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get authenticated user's unread notification count
+ * @route   GET /api/notifications/unread-count
+ * @access  Private (All authenticated roles)
+ */
+exports.getUnreadCount = async (req, res, next) => {
+  try {
+    const unreadCount = await notificationService.getUnreadNotificationCount(req.user._id);
+
+    return res.status(200).json({
+      success: true,
+      unreadCount
     });
   } catch (error) {
     next(error);

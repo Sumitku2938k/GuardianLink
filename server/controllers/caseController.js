@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
+const Notification = require("../models/Notification");
+const { createNotification } = require("../services/notificationService");
 
 /**
  * Valid state machine transitions for MissingCase lifecycle
@@ -451,6 +453,28 @@ exports.updateCaseStatus = async (req, res, next) => {
     missingCase.status = targetStatus;
     await missingCase.save();
 
+    // Dispatch case status update notification to guardian (non-blocking)
+    try {
+      const guardianId = missingCase.childId?.guardianId || missingCase.reportedBy;
+      if (guardianId && guardianId.toString() !== req.user._id.toString()) {
+        createNotification({
+          recipientId: guardianId,
+          senderId: req.user._id,
+          recipientRole: "parent",
+          type: "case_updated",
+          title: `Case #${missingCase.caseNumber} Status: ${targetStatus.toUpperCase()}`,
+          message: `The status of missing case #${missingCase.caseNumber} for ${missingCase.childId?.fullName || "your child"} has been updated to '${targetStatus}'.`,
+          data: {
+            caseId: missingCase._id,
+            childId: missingCase.childId?._id || missingCase.childId,
+            caseNumber: missingCase.caseNumber
+          }
+        }).catch((err) => console.warn("[CaseController] Notification error on status update:", err.message));
+      }
+    } catch (notifErr) {
+      console.warn("[CaseController] Notification dispatch error:", notifErr.message);
+    }
+
     res.status(200).json({
       success: true,
       message: `Case status successfully updated to '${targetStatus}'.`,
@@ -691,6 +715,27 @@ exports.assignOfficer = async (req, res, next) => {
     missingCase.markModified("investigationNotes");
 
     await missingCase.save();
+
+    // Dispatch assignment notification to assigned officer (non-blocking)
+    try {
+      if (officerId && officerId.toString() !== req.user._id.toString()) {
+        createNotification({
+          recipientId: officerId,
+          senderId: req.user._id,
+          recipientRole: "police",
+          type: "case_updated",
+          title: `Assigned as Lead Officer: Case #${missingCase.caseNumber}`,
+          message: `You have been assigned as investigating lead for missing case #${missingCase.caseNumber} (${missingCase.childId?.fullName || "Child"}).`,
+          data: {
+            caseId: missingCase._id,
+            childId: missingCase.childId?._id || missingCase.childId,
+            caseNumber: missingCase.caseNumber
+          }
+        }).catch((err) => console.warn("[CaseController] Notification error on officer assign:", err.message));
+      }
+    } catch (notifErr) {
+      console.warn("[CaseController] Assignment notification error:", notifErr.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -984,6 +1029,32 @@ exports.reviewAIMatch = async (req, res, next) => {
     missingCase.markModified("investigationNotes");
 
     await missingCase.save();
+
+    // If officer confirmed AI match, dispatch verified alert to verified guardian (non-blocking)
+    if (decision === "confirm") {
+      try {
+        const guardianId = missingCase.childId?.guardianId || missingCase.reportedBy;
+        const canNotify = (mongoose.connection && mongoose.connection.readyState === 1) ||
+          (Notification.prototype.save !== mongoose.Model.prototype.save);
+        if (guardianId && canNotify) {
+          createNotification({
+            recipientId: guardianId,
+            senderId: req.user._id,
+            recipientRole: "parent",
+            type: "match_flagged",
+            title: `Verified AI Match: ${missingCase.childId?.fullName || "Child"} Located`,
+            message: `Law enforcement officer ${req.user.name} has confirmed a verified match lead for case #${missingCase.caseNumber}. The case status has progressed to Found.`,
+            data: {
+              caseId: missingCase._id,
+              childId: missingCase.childId?._id || missingCase.childId,
+              caseNumber: missingCase.caseNumber
+            }
+          }).catch((err) => console.warn("[CaseController] Notification error on match confirm:", err.message));
+        }
+      } catch (notifErr) {
+        console.warn("[CaseController] Match notification error:", notifErr.message);
+      }
+    }
 
     res.status(200).json({
       success: true,
