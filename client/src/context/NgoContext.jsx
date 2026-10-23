@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import * as ngoService from "@/services/ngoService";
+import socketService from "@/services/socketService";
 import api from "@/lib/axios";
 
 const NgoContext = createContext();
@@ -197,6 +198,28 @@ export const NgoProvider = ({ children }) => {
   useEffect(() => {
     refreshNgoData();
   }, [refreshNgoData]);
+
+  // Subscribe to live socket events for NGO care updates
+  useEffect(() => {
+    if (!isAuthenticated || !user || user.role !== "ngo") return;
+
+    const unbind = socketService.onSocketEvent("notification:new", (newNotif) => {
+      console.info("[NgoContext] Live alert received:", newNotif?.type);
+
+      // Auto-refresh operational datasets on relevant events
+      if (
+        newNotif?.type?.includes("handover") ||
+        newNotif?.type?.includes("care") ||
+        newNotif?.type?.includes("case")
+      ) {
+        refreshNgoData();
+      }
+    });
+
+    return () => {
+      unbind();
+    };
+  }, [isAuthenticated, user, refreshNgoData]);
 
   // Complete Intake Workflow: Calls real API
   const completeIntake = async (intakePayload) => {

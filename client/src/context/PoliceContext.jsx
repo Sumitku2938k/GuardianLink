@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 import * as policeService from "@/services/policeService";
+import socketService from "@/services/socketService";
 
 const PoliceContext = createContext();
 
@@ -227,6 +228,31 @@ export const PoliceProvider = ({ children }) => {
     if (user && user.role === "police" && user.status === "approved") {
       refreshData();
     }
+  }, [user, refreshData]);
+
+  // Subscribe to live socket events for police desk updates
+  useEffect(() => {
+    if (!user || user.role !== "police") return;
+
+    const unbind = socketService.onSocketEvent("notification:new", (newNotif) => {
+      console.info("[PoliceContext] Live alert received:", newNotif?.type);
+      setPoliceNotifications((prev) => [newNotif, ...prev]);
+
+      // If sighting reported, match flagged, or case updated, auto-refresh desk datasets
+      if (
+        newNotif?.type === "sighting_reported" ||
+        newNotif?.type === "match_flagged" ||
+        newNotif?.type === "case_updated" ||
+        newNotif?.type === "care_intake" ||
+        newNotif?.type === "handover_requested"
+      ) {
+        refreshData();
+      }
+    });
+
+    return () => {
+      unbind();
+    };
   }, [user, refreshData]);
 
   // Assign or Reassign Officer to Case

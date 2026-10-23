@@ -75,6 +75,7 @@ import { RoleRoute } from "@/components/auth/RoleRoute";
 import { PublicRoute } from "@/components/auth/PublicRoute";
 
 import { AuthProvider } from "@/context/AuthContext";
+import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ChildrenProvider } from "@/context/ChildrenContext";
 import { MissingCasesProvider } from "@/context/MissingCasesContext";
 import { CitizenProvider } from "@/context/CitizenContext";
@@ -88,13 +89,14 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ChildrenProvider>
-          <MissingCasesProvider>
-            <CitizenProvider>
-              <PoliceProvider>
-                <NgoProvider>
-                  <AdminProvider>
-                    <Routes>
+        <RealtimeProvider>
+          <ChildrenProvider>
+            <MissingCasesProvider>
+              <CitizenProvider>
+                <PoliceProvider>
+                  <NgoProvider>
+                    <AdminProvider>
+                      <Routes>
                       {/* Landing Page */}
                       <Route path="/" element={<Index />} />
                       
@@ -212,6 +214,7 @@ export default function App() {
             </CitizenProvider>
           </MissingCasesProvider>
         </ChildrenProvider>
+        </RealtimeProvider>
       </AuthProvider>
     </BrowserRouter>
   );

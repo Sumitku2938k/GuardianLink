@@ -93,33 +93,24 @@ export const CitizenProvider = ({ children }) => {
     }
   ]);
 
-  // Citizen Notifications
-  const [notifications, setNotifications] = useState([
-    {
-      id: "cn-1",
-      title: "Guardian Accepted Contact Request",
-      message: "Parent of Kabir Mehta accepted your proxy request for Report #CR-2026-9041.",
-      time: "15 minutes ago",
-      isRead: false,
-      type: "success"
-    },
-    {
-      id: "cn-2",
-      title: "AI Face Vector Candidate Flagged",
-      message: "A 94.8% potential match was detected for your recent photo upload.",
-      time: "1 hour ago",
-      isRead: false,
-      type: "info"
-    },
-    {
-      id: "cn-3",
-      title: "Nearby Police Station Dispatched",
-      message: "Railway Protection Force Post acknowledged Report #CR-2026-3180.",
-      time: "1 day ago",
-      isRead: true,
-      type: "warning"
-    }
-  ]);
+  // Citizen Notifications (persisted from API)
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getUserNotifications()
+      .then((res) => {
+        if (isMounted && Array.isArray(res?.notifications)) {
+          setNotifications(res.notifications);
+        }
+      })
+      .catch((err) => {
+        console.warn("[CitizenContext] Could not load notifications:", err.message);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Active Found Child Workflow Session State
   const [workflowSession, setWorkflowSession] = useState({
