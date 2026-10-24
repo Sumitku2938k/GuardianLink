@@ -23,8 +23,17 @@ import { useRealtime } from "@/context/RealtimeContext";
 export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { unreadCount } = useRealtime();
-  const { childrenInCare, referrals, handovers, ngoNotifications, shelterInfo } = useNgo();
+  const { unreadCount = 0 } = useRealtime() || {};
+  const {
+    childrenInCare = [],
+    referrals = [],
+    handovers,
+    transfers = [],
+    ngoNotifications = [],
+    shelterInfo = {}
+  } = useNgo() || {};
+
+  const transferList = (handovers && Array.isArray(handovers)) ? handovers : transfers;
 
   const menuItems = [
     { id: "dashboard", path: "/ngo/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,7 +42,7 @@ export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
       path: "/ngo/children",
       label: "Children in Care",
       icon: Heart,
-      badge: childrenInCare.length > 0 ? String(childrenInCare.length) : null,
+      badge: (childrenInCare?.length > 0) ? String(childrenInCare.length) : null,
       badgeVariant: "primary"
     },
     { id: "intake", path: "/ngo/intake", label: "Safe Intake Wizard", icon: FileCheck },
@@ -42,7 +51,7 @@ export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
       path: "/ngo/cases",
       label: "Active Cases",
       icon: HeartHandshake,
-      badge: referrals.length > 0 ? String(referrals.length) : null
+      badge: (referrals?.length > 0) ? String(referrals.length) : null
     },
     { id: "shelter", path: "/ngo/shelter", label: "Shelter Capacity", icon: Building2 },
     {
@@ -50,14 +59,16 @@ export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
       path: "/ngo/transfers",
       label: "Shelter Transfers",
       icon: ArrowLeftRight,
-      badge: handovers.length > 0 ? String(handovers.length) : null
+      badge: (transferList?.length > 0) ? String(transferList.length) : null
     },
     {
       id: "notifications",
       path: "/ngo/notifications",
       label: "Notifications",
       icon: Bell,
-      badge: unreadCount > 0 ? (unreadCount > 99 ? "99+" : String(unreadCount)) : (ngoNotifications.length > 0 ? String(ngoNotifications.length) : null)
+      badge: (unreadCount > 0)
+        ? (unreadCount > 99 ? "99+" : String(unreadCount))
+        : (ngoNotifications?.length > 0 ? String(ngoNotifications.length) : null)
     },
     { id: "analytics", path: "/ngo/analytics", label: "Care Analytics", icon: BarChart3 },
     { id: "profile", path: "/ngo/profile", label: "Organization Profile", icon: User }
@@ -149,12 +160,12 @@ export const NgoSidebar = ({ isOpen, onClose, currentNgo, onLogout }) => {
         <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden cursor-pointer" onClick={() => navigate("/ngo/profile")}>
             <img
-              src={currentNgo.logo}
-              alt={currentNgo.name}
+              src={currentNgo?.logo || "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"}
+              alt={currentNgo?.name || "NGO"}
               className="w-9 h-9 rounded-xl object-cover ring-2 ring-teal-500/30 shrink-0"
             />
             <div className="truncate">
-              <h4 className="text-xs font-bold text-slate-800 dark:text-white truncate">{currentNgo.name}</h4>
+              <h4 className="text-xs font-bold text-slate-800 dark:text-white truncate">{currentNgo?.name || "NGO Shelter"}</h4>
               <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono block truncate">Verified NGO Shelter</span>
             </div>
           </div>

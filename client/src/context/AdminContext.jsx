@@ -452,49 +452,8 @@ export const AdminProvider = ({ children }) => {
     }
   ]);
 
-  // Immutable Audit Logs Dataset
-  const [auditLogs, setAuditLogs] = useState([
-    {
-      id: "AUD-9901",
-      timestamp: "Today, 11:15 AM",
-      actor: "Dr. Vikram Sethi",
-      role: "Admin",
-      action: "Verified NGO Organization",
-      entity: "Organization",
-      entityId: "ORG-NGO-01",
-      result: "Approved"
-    },
-    {
-      id: "AUD-9902",
-      timestamp: "Today, 10:40 AM",
-      actor: "Insp. R. S. Rathore",
-      role: "Police",
-      action: "Updated Case Verification Status",
-      entity: "Case",
-      entityId: "MC-2026-8821",
-      result: "Confirmed Match"
-    },
-    {
-      id: "AUD-9903",
-      timestamp: "Today, 09:30 AM",
-      actor: "System AI",
-      role: "System",
-      action: "Generated Candidate Match",
-      entity: "AI Match",
-      entityId: "MATCH-8821-44",
-      result: "Candidate Logged"
-    },
-    {
-      id: "AUD-9904",
-      timestamp: "Yesterday, 16:20",
-      actor: "Dr. Vikram Sethi",
-      role: "Admin",
-      action: "Suspended User Account",
-      entity: "User",
-      entityId: "USR-1006",
-      result: "Suspended"
-    }
-  ]);
+  // Audit Logs State (Live fetched via auditLogService)
+  const [auditLogs, setAuditLogs] = useState([]);
 
   // Mock Settings State
   const [systemSettings, setSystemSettings] = useState({

@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/Button";
 
 export default function NgoDashboard() {
   const navigate = useNavigate();
-  const { currentNgo, shelterInfo, childrenInCare } = useNgo();
+  const { currentNgo = {}, shelterInfo = {}, childrenInCare = [] } = useNgo() || {};
+  const activeChildren = Array.isArray(childrenInCare) ? childrenInCare : [];
 
   return (
     <div className="space-y-6">
@@ -31,12 +32,12 @@ export default function NgoDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-slate-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider">{currentNgo.name}</span>
+            <span className="text-xs font-mono font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider">{currentNgo?.name || "Helping Hands Organization"}</span>
             <span className="text-slate-300 dark:text-slate-600">•</span>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">Shelter Kiosk Sector 12</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-850 dark:text-white tracking-tight">
-            Good morning, Helping Hands Team
+            Good morning, {currentNgo?.name || "Helping Hands Team"}
           </h1>
           <p className="text-xs text-slate-550 dark:text-slate-400 mt-0.5">
             Here's the current status of children, shelter capacity, and active care coordination.
@@ -62,7 +63,7 @@ export default function NgoDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Children in Care"
-          value={childrenInCare.length}
+          value={activeChildren.length}
           subtitle="Receiving Temporary Shelter"
           icon={Heart}
           colorScheme="teal"
@@ -70,7 +71,7 @@ export default function NgoDashboard() {
 
         <StatCard
           title="Pending Intake"
-          value={shelterInfo.pendingIntake}
+          value={shelterInfo?.pendingIntake || 0}
           subtitle="Arriving Escorts"
           icon={Clock}
           colorScheme="amber"
@@ -78,7 +79,7 @@ export default function NgoDashboard() {
 
         <StatCard
           title="Awaiting Verification"
-          value={childrenInCare.filter((c) => c.careStatus === "Awaiting Verification").length}
+          value={activeChildren.filter((c) => c.careStatus === "Awaiting Verification").length}
           subtitle="Police & Guardian Desk"
           icon={ShieldCheck}
           colorScheme="blue"
@@ -86,7 +87,7 @@ export default function NgoDashboard() {
 
         <StatCard
           title="Medical Attention Needed"
-          value={childrenInCare.filter((c) => c.medicalStatus === "Medical Attention Required").length}
+          value={activeChildren.filter((c) => c.medicalStatus === "Medical Attention Required").length}
           subtitle="In Medical Ward"
           icon={HeartPulse}
           colorScheme="rose"

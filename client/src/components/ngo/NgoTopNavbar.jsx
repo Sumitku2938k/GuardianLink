@@ -82,8 +82,8 @@ export const NgoTopNavbar = ({ onOpenMobileSidebar, currentNgo, onLogout }) => {
               className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <img
-                src={currentNgo.logo}
-                alt={currentNgo.name}
+                src={currentNgo?.logo || "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"}
+                alt={currentNgo?.name || "NGO"}
                 className="w-8 h-8 rounded-xl object-cover ring-2 ring-teal-500/30"
               />
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
@@ -92,7 +92,7 @@ export const NgoTopNavbar = ({ onOpenMobileSidebar, currentNgo, onLogout }) => {
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-200 dark:border-slate-800 z-50 py-1.5 text-xs text-slate-700 dark:text-slate-205">
                 <div className="px-3 py-2 border-b border-gray-150 dark:border-slate-800">
-                  <strong className="block text-slate-850 dark:text-white font-bold truncate">{currentNgo.name}</strong>
+                  <strong className="block text-slate-850 dark:text-white font-bold truncate">{currentNgo?.name || "NGO Shelter"}</strong>
                   <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono">Verified NGO Shelter</span>
                 </div>
 

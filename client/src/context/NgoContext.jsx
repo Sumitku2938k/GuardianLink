@@ -412,6 +412,7 @@ export const NgoProvider = ({ children }) => {
         referrals,
         intakeRecords: childrenInCare,
         transfers,
+        handovers: transfers,
         careLogs,
         ngoNotifications,
         ngoAnalytics,
