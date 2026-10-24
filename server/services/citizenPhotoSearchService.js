@@ -139,7 +139,7 @@ const searchMissingChildPhoto = async (params, options = {}) => {
       mongoose.Types.ObjectId.isValid(c.childId) &&
       typeof c.similarity === "number" &&
       Number.isFinite(c.similarity) &&
-      c.similarity >= -1.0 &&
+      c.similarity >= activeThreshold &&
       c.similarity <= 1.0
     ) {
       const childIdStr = c.childId.toString();
