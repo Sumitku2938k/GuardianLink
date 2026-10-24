@@ -16,4 +16,7 @@ router.patch("/users/:id/suspend", adminController.suspendUser);
 router.patch("/users/:id/activate", adminController.activateUser);
 router.patch("/users/:id/role", adminController.updateUserRole);
 
+// Audit logs & activity trail routes
+router.get("/audit-logs", adminController.getAuditLogs);
+
 module.exports = router;
