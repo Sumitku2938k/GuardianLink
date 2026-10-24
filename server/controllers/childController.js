@@ -3,6 +3,7 @@ const Child = require("../models/Child");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
 const { enrollChildBiometric } = require("../services/childBiometricService");
 const aiService = require("../services/aiService");
+const auditLogService = require("../services/auditLogService");
 
 /**
  * Helper to safely parse JSON strings from multipart/form-data
@@ -208,6 +209,20 @@ exports.createChild = async (req, res, next) => {
 
     // Re-fetch persisted child document to serialize updated biometric fields
     const refreshedChild = (await Child.findById(child._id)) || child;
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CHILD_CREATED",
+      entityType: "Child",
+      entityId: child._id,
+      outcome: "success",
+      metadata: {
+        childId: child._id.toString(),
+        gender: refreshedChild.gender,
+        hasPhoto: Boolean(refreshedChild.photoUrl),
+        biometricStatus: refreshedChild.biometricStatus || "pending"
+      }
+    });
 
     return res.status(201).json({
       success: true,
@@ -440,6 +455,18 @@ exports.updateChild = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: newUpload ? "CHILD_PHOTO_REPLACED" : "CHILD_UPDATED",
+      entityType: "Child",
+      entityId: child._id,
+      outcome: "success",
+      metadata: {
+        childId: child._id.toString(),
+        photoUpdated: Boolean(newUpload)
+      }
+    });
+
     return res.status(200).json({
       success: true,
       message: "Child profile updated successfully.",
@@ -536,6 +563,18 @@ exports.updateChildPhoto = async (req, res, next) => {
 
     const refreshedChild = (await Child.findById(child._id)) || child;
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CHILD_PHOTO_REPLACED",
+      entityType: "Child",
+      entityId: child._id,
+      outcome: "success",
+      metadata: {
+        childId: child._id.toString(),
+        biometricStatus: refreshedChild.biometricStatus || "pending"
+      }
+    });
+
     return res.status(200).json({
       success: true,
       message: biometricResult?.success
@@ -608,6 +647,17 @@ exports.deleteChildPhoto = async (req, res, next) => {
     child.enrolledAt = null;
 
     await child.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CHILD_PHOTO_DELETED",
+      entityType: "Child",
+      entityId: child._id,
+      outcome: "success",
+      metadata: {
+        childId: child._id.toString()
+      }
+    });
 
     return res.status(200).json({
       success: true,

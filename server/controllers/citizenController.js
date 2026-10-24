@@ -10,6 +10,7 @@
  */
 
 const citizenPhotoSearchService = require("../services/citizenPhotoSearchService");
+const auditLogService = require("../services/auditLogService");
 const {
   AIServiceTimeoutError,
   AIServiceUnavailableError,
@@ -62,7 +63,19 @@ exports.searchMissingChild = async (req, res, next) => {
       parsedThreshold = flt;
     }
 
-    // 3. Execute privacy-safe candidate resolution
+    // 3. Record AI match request audit event
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "AI_MATCH_REQUESTED",
+      entityType: "AI_SEARCH",
+      outcome: "success",
+      metadata: {
+        limit: parsedLimit || 5,
+        threshold: parsedThreshold || 0.6
+      }
+    });
+
+    // 4. Execute privacy-safe candidate resolution
     const searchResult = await citizenPhotoSearchService.searchMissingChildPhoto({
       imageBuffer: req.file.buffer,
       mimeType: req.file.mimetype || "image/jpeg",
@@ -71,13 +84,25 @@ exports.searchMissingChild = async (req, res, next) => {
       threshold: parsedThreshold
     });
 
-    // 4. Record sanitized operational audit log
+    // 5. Record sanitized operational audit log
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "AI_MATCH_RETURNED",
+      entityType: "AI_SEARCH",
+      outcome: "success",
+      metadata: {
+        matchFound: searchResult.matchFound,
+        totalCandidates: searchResult.totalCandidates || 0,
+        thresholdApplied: searchResult.thresholdApplied
+      }
+    });
+
     const requestingUserId = req.user?._id ? req.user._id.toString() : "authenticated_citizen";
     console.info(
       `[Audit:CitizenPhotoSearch] timestamp=${new Date().toISOString()} userId=${requestingUserId} matchFound=${searchResult.matchFound} candidatesCount=${searchResult.totalCandidates} threshold=${searchResult.thresholdApplied}`
     );
 
-    // 5. Deliver sanitized public response
+    // 6. Deliver sanitized public response
     return res.status(200).json({
       success: true,
       ...searchResult

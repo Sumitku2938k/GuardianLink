@@ -12,6 +12,7 @@
 
 const ngoService = require("../services/ngoService");
 const Handover = require("../models/Handover");
+const auditLogService = require("../services/auditLogService");
 
 // Helper to enforce verified status
 const ensureApproved = (req, res) => {
@@ -63,6 +64,19 @@ exports.createCareRecord = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const careRecord = await ngoService.createCareRecord(req.user, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CARE_RECORD_CREATED",
+      entityType: "CareRecord",
+      entityId: careRecord._id || careRecord.id,
+      outcome: "success",
+      metadata: {
+        careRecordId: (careRecord._id || careRecord.id).toString(),
+        status: careRecord.status
+      }
+    });
+
     res.status(201).json({
       success: true,
       message: "Safe child intake successfully recorded.",
@@ -134,6 +148,20 @@ exports.updateCareRecordStatus = async (req, res, next) => {
       status,
       reason
     );
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CARE_STATUS_CHANGED",
+      entityType: "CareRecord",
+      entityId: record._id || record.id,
+      outcome: "success",
+      metadata: {
+        careRecordId: (record._id || record.id).toString(),
+        status,
+        reason: reason || ""
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: `Care record status updated to '${status}'.`,
@@ -228,6 +256,19 @@ exports.createShelter = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const shelter = await ngoService.createShelter(req.user, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "SHELTER_CREATED",
+      entityType: "Shelter",
+      entityId: shelter._id || shelter.id,
+      outcome: "success",
+      metadata: {
+        shelterName: shelter.name,
+        capacity: shelter.capacity
+      }
+    });
+
     res.status(201).json({
       success: true,
       message: "Shelter facility registered successfully.",
@@ -252,6 +293,18 @@ exports.updateShelter = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const shelter = await ngoService.updateShelter(req.user, req.params.shelterId, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "SHELTER_UPDATED",
+      entityType: "Shelter",
+      entityId: shelter._id || shelter.id,
+      outcome: "success",
+      metadata: {
+        shelterName: shelter.name
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Shelter facility updated successfully.",
@@ -276,6 +329,18 @@ exports.assignPlacement = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const record = await ngoService.assignPlacement(req.user, req.params.careRecordId, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CHILD_PLACEMENT_CREATED",
+      entityType: "CareRecord",
+      entityId: record._id || record.id,
+      outcome: "success",
+      metadata: {
+        careRecordId: (record._id || record.id).toString()
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Shelter placement assigned successfully.",
@@ -300,6 +365,18 @@ exports.requestHandover = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const handover = await ngoService.requestHandover(req.user, req.params.careRecordId, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "HANDOVER_REQUESTED",
+      entityType: "Handover",
+      entityId: handover._id || handover.id,
+      outcome: "success",
+      metadata: {
+        handoverId: (handover._id || handover.id).toString()
+      }
+    });
+
     res.status(201).json({
       success: true,
       message: "Handover and safe release request submitted for police verification.",
@@ -379,6 +456,18 @@ exports.approveHandover = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const handover = await ngoService.approveHandover(req.user, req.params.handoverId);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "HANDOVER_APPROVED",
+      entityType: "Handover",
+      entityId: handover._id || handover.id,
+      outcome: "success",
+      metadata: {
+        handoverId: (handover._id || handover.id).toString()
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Handover request approved. Release authorized.",
@@ -404,6 +493,19 @@ exports.rejectHandover = async (req, res, next) => {
     if (!ensureApproved(req, res)) return;
     const { reason } = req.body || {};
     const handover = await ngoService.rejectHandover(req.user, req.params.handoverId, reason);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "HANDOVER_REJECTED",
+      entityType: "Handover",
+      entityId: handover._id || handover.id,
+      outcome: "success",
+      metadata: {
+        handoverId: (handover._id || handover.id).toString(),
+        reason: reason || ""
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Handover request rejected.",
@@ -428,6 +530,18 @@ exports.completeHandover = async (req, res, next) => {
   try {
     if (!ensureApproved(req, res)) return;
     const handover = await ngoService.completeHandover(req.user, req.params.handoverId, req.body);
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "HANDOVER_COMPLETED",
+      entityType: "Handover",
+      entityId: handover._id || handover.id,
+      outcome: "success",
+      metadata: {
+        handoverId: (handover._id || handover.id).toString()
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "Handover successfully completed and child released into verified custody.",

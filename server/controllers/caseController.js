@@ -3,6 +3,7 @@ const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
 const Notification = require("../models/Notification");
 const { createNotification } = require("../services/notificationService");
+const auditLogService = require("../services/auditLogService");
 
 /**
  * Valid state machine transitions for MissingCase lifecycle
@@ -160,6 +161,20 @@ exports.createCase = async (req, res, next) => {
 
     await missingCase.save();
     await missingCase.populate("childId");
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_REPORTED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        childId: child._id.toString(),
+        policeCaseNumber: missingCase.policeCaseNumber,
+        priority: missingCase.priority
+      }
+    });
 
     res.status(201).json({
       success: true,
@@ -453,6 +468,32 @@ exports.updateCaseStatus = async (req, res, next) => {
     missingCase.status = targetStatus;
     await missingCase.save();
 
+    const statusAction =
+      targetStatus === "active"
+        ? "CASE_ACTIVATED"
+        : targetStatus === "closed"
+        ? "CASE_CLOSED"
+        : targetStatus === "cancelled"
+        ? "CASE_CANCELLED"
+        : targetStatus === "reunited"
+        ? "REUNIFICATION_CONFIRMED"
+        : "CASE_STATUS_CHANGED";
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: statusAction,
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        previousStatus: currentStatus,
+        newStatus: targetStatus,
+        childId: (missingCase.childId?._id || missingCase.childId || "").toString()
+      },
+      critical: true
+    });
+
     // Dispatch case status update notification to guardian (non-blocking)
     try {
       const guardianId = missingCase.childId?.guardianId || missingCase.reportedBy;
@@ -647,6 +688,20 @@ exports.updateInvestigationDetails = async (req, res, next) => {
       });
       missingCase.markModified("investigationNotes");
       await missingCase.save();
+
+      await auditLogService.recordAuditEvent({
+        req,
+        action: "CASE_INVESTIGATION_UPDATED",
+        entityType: "MissingCase",
+        entityId: missingCase._id,
+        outcome: "success",
+        metadata: {
+          caseId: missingCase._id.toString(),
+          policeCaseNumber: missingCase.policeCaseNumber,
+          priority: missingCase.priority,
+          changesCount: changes.length
+        }
+      });
     }
 
     res.status(200).json({
@@ -715,6 +770,20 @@ exports.assignOfficer = async (req, res, next) => {
     missingCase.markModified("investigationNotes");
 
     await missingCase.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_ASSIGNED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        assignedOfficerId: assignedId.toString(),
+        assignedOfficerName: assignedName,
+        assignedBadge
+      }
+    });
 
     // Dispatch assignment notification to assigned officer (non-blocking)
     try {
@@ -808,6 +877,18 @@ exports.addInvestigationNote = async (req, res, next) => {
     missingCase.markModified("investigationNotes");
     await missingCase.save();
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_NOTE_ADDED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        noteLength: text.trim().length
+      }
+    });
+
     const safeObj = missingCase.toSafeObject();
 
     res.status(201).json({
@@ -870,6 +951,19 @@ exports.createTask = async (req, res, next) => {
     missingCase.investigationTasks.push(newTask);
     await missingCase.save();
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_TASK_UPDATED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        taskLabel: newTask.label,
+        assignedTo: newTask.assignedTo
+      }
+    });
+
     const safeObj = missingCase.toSafeObject();
 
     res.status(201).json({
@@ -926,6 +1020,20 @@ exports.toggleTask = async (req, res, next) => {
     task.completedAt = task.completed ? new Date() : null;
 
     await missingCase.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_TASK_UPDATED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        taskId: task._id ? task._id.toString() : null,
+        completed: task.completed
+      }
+    });
+
     const safeObj = missingCase.toSafeObject();
 
     res.status(200).json({
@@ -1029,6 +1137,21 @@ exports.reviewAIMatch = async (req, res, next) => {
     missingCase.markModified("investigationNotes");
 
     await missingCase.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "AI_MATCH_REVIEWED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        matchId: String(matchId),
+        decision,
+        verificationStatus,
+        candidateId: String(candidateId || "")
+      }
+    });
 
     // If officer confirmed AI match, dispatch verified alert to verified guardian (non-blocking)
     if (decision === "confirm") {

@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { sendTokenResponse, clearTokenCookie, COOKIE_NAME } = require("../utils/cookies");
 const { delSession } = require("../config/redis");
+const auditLogService = require("../services/auditLogService");
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -76,6 +77,20 @@ exports.register = async (req, res, next) => {
 
     await user.save();
 
+    await auditLogService.recordAuditEvent({
+      actor: { _id: user._id, name: user.name, role: user.role, organization: user.organization },
+      action: "USER_REGISTRATION_COMPLETED",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        registeredRole: user.role,
+        initialStatus: user.status,
+        city: user.city || null,
+        state: user.state || null
+      }
+    });
+
     // Send HttpOnly Cookie & Return Safe User Payload
     await sendTokenResponse(user, 201, res);
   } catch (error) {
@@ -109,6 +124,17 @@ exports.login = async (req, res, next) => {
     }).select("+passwordHash");
 
     if (!user) {
+      await auditLogService.recordAuditEvent({
+        req,
+        action: "USER_LOGIN_FAILED",
+        entityType: "User",
+        outcome: "failure",
+        metadata: {
+          reason: "USER_NOT_FOUND",
+          identifierType: lowerIdentifier.includes("@") ? "email" : "phone"
+        }
+      });
+
       return res.status(401).json({
         success: false,
         message: "Email/phone or password is incorrect.",
@@ -118,6 +144,19 @@ exports.login = async (req, res, next) => {
 
     // Check if user is suspended or deactivated
     if (user.status === "suspended") {
+      await auditLogService.recordAuditEvent({
+        req,
+        actor: { _id: user._id, name: user.name, role: user.role, organization: user.organization },
+        action: "USER_LOGIN_FAILED",
+        entityType: "User",
+        entityId: user._id,
+        outcome: "denied",
+        metadata: {
+          reason: "ACCOUNT_SUSPENDED",
+          targetRole: user.role
+        }
+      });
+
       return res.status(403).json({
         success: false,
         message: "Your account has been suspended. Please contact platform support.",
@@ -126,6 +165,19 @@ exports.login = async (req, res, next) => {
     }
 
     if (user.status === "deactivated") {
+      await auditLogService.recordAuditEvent({
+        req,
+        actor: { _id: user._id, name: user.name, role: user.role, organization: user.organization },
+        action: "USER_LOGIN_FAILED",
+        entityType: "User",
+        entityId: user._id,
+        outcome: "denied",
+        metadata: {
+          reason: "ACCOUNT_DEACTIVATED",
+          targetRole: user.role
+        }
+      });
+
       return res.status(403).json({
         success: false,
         message: "Your account has been deactivated. Please contact platform support.",
@@ -136,6 +188,19 @@ exports.login = async (req, res, next) => {
     // Verify Password Hash
     const isMatch = await user.comparePassword(safePassword);
     if (!isMatch) {
+      await auditLogService.recordAuditEvent({
+        req,
+        actor: { _id: user._id, name: user.name, role: user.role, organization: user.organization },
+        action: "USER_LOGIN_FAILED",
+        entityType: "User",
+        entityId: user._id,
+        outcome: "failure",
+        metadata: {
+          reason: "INVALID_PASSWORD",
+          targetRole: user.role
+        }
+      });
+
       return res.status(401).json({
         success: false,
         message: "Email/phone or password is incorrect.",
@@ -146,6 +211,19 @@ exports.login = async (req, res, next) => {
     // Update lastLogin timestamp
     user.lastLogin = new Date();
     await user.save({ validateBeforeSave: false });
+
+    await auditLogService.recordAuditEvent({
+      req,
+      actor: { _id: user._id, name: user.name, role: user.role, organization: user.organization },
+      action: "USER_LOGIN_SUCCESS",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        role: user.role,
+        organization: user.organization || null
+      }
+    });
 
     // Send HttpOnly Cookie & Return Safe User
     await sendTokenResponse(user, 200, res);
@@ -198,6 +276,15 @@ exports.logout = async (req, res, next) => {
 
     if (userId) {
       await delSession(`session:${userId}`);
+
+      await auditLogService.recordAuditEvent({
+        req,
+        actor: req.user || { _id: userId, name: "User", role: "citizen" },
+        action: "USER_LOGOUT",
+        entityType: "User",
+        entityId: userId,
+        outcome: "success"
+      });
     }
 
     clearTokenCookie(res);

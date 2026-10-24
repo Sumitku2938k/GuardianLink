@@ -10,6 +10,7 @@
  */
 
 const sightingService = require("../services/sightingService");
+const auditLogService = require("../services/auditLogService");
 
 /**
  * @desc    Submit a citizen sighting report for an active missing child case
@@ -37,6 +38,18 @@ exports.submitSighting = async (req, res, next) => {
       safetyState,
       observedAt,
       reportingUser: req.user
+    });
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "SIGHTING_CREATED",
+      entityType: "Sighting",
+      entityId: result.sighting.id,
+      outcome: "success",
+      metadata: {
+        sightingId: result.sighting.id,
+        caseId: String(caseId)
+      }
     });
 
     console.info(
@@ -130,6 +143,18 @@ exports.getSightingById = async (req, res, next) => {
     }
 
     if (error.code === "FORBIDDEN") {
+      await auditLogService.recordAuditEvent({
+        req,
+        action: "SIGHTING_ACCESS_DENIED",
+        entityType: "Sighting",
+        entityId: req.params.id,
+        outcome: "denied",
+        metadata: {
+          sightingId: req.params.id,
+          reason: "UNAUTHORIZED_SIGHTING_ACCESS"
+        }
+      });
+
       return res.status(403).json({
         success: false,
         message: error.message,
@@ -154,6 +179,18 @@ exports.reviewSighting = async (req, res, next) => {
       { status, reviewNotes },
       req.user
     );
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "SIGHTING_REVIEWED",
+      entityType: "Sighting",
+      entityId: req.params.id,
+      outcome: "success",
+      metadata: {
+        sightingId: req.params.id,
+        newStatus: status
+      }
+    });
 
     console.info(
       `[Audit:SightingReviewed] timestamp=${new Date().toISOString()} officerId=${req.user._id} sightingId=${req.params.id} newStatus=${status}`

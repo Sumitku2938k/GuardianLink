@@ -1,4 +1,6 @@
 const User = require("../models/User");
+const auditLogService = require("../services/auditLogService");
+
 
 // @desc    Get all users with optional filtering & search
 // @route   GET /api/admin/users
@@ -87,6 +89,21 @@ exports.approveUser = async (req, res, next) => {
 
     await user.save();
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "ADMIN_APPROVED_USER",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        targetUserId: user._id.toString(),
+        targetUserName: user.name,
+        targetUserRole: user.role,
+        organization: user.organization || null
+      },
+      critical: true
+    });
+
     return res.status(200).json({
       success: true,
       message: `Account for ${user.name} (${user.role.toUpperCase()}) approved successfully.`,
@@ -128,6 +145,21 @@ exports.rejectUser = async (req, res, next) => {
       "Organization credentials could not be verified by platform administrators.";
 
     await user.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "ADMIN_REJECTED_USER",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        targetUserId: user._id.toString(),
+        targetUserName: user.name,
+        targetUserRole: user.role,
+        rejectionReason: user.rejectionReason
+      },
+      critical: true
+    });
 
     return res.status(200).json({
       success: true,
@@ -179,6 +211,21 @@ exports.suspendUser = async (req, res, next) => {
 
     await user.save();
 
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "ADMIN_SUSPENDED_USER",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        targetUserId: user._id.toString(),
+        targetUserName: user.name,
+        targetUserRole: user.role,
+        reason: user.rejectionReason || "Account suspended by admin"
+      },
+      critical: true
+    });
+
     return res.status(200).json({
       success: true,
       message: `Account for ${user.name} has been suspended.`,
@@ -210,6 +257,21 @@ exports.activateUser = async (req, res, next) => {
     user.rejectionReason = "";
 
     await user.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "ADMIN_REACTIVATED_USER",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        targetUserId: user._id.toString(),
+        targetUserName: user.name,
+        targetUserRole: user.role,
+        newStatus: user.status
+      },
+      critical: true
+    });
 
     return res.status(200).json({
       success: true,
@@ -262,8 +324,24 @@ exports.updateUserRole = async (req, res, next) => {
       });
     }
 
+    const previousRole = user.role;
     user.role = role.toLowerCase();
     await user.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "ADMIN_CHANGED_USER_ROLE",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        targetUserId: user._id.toString(),
+        targetUserName: user.name,
+        previousRole,
+        newRole: user.role
+      },
+      critical: true
+    });
 
     return res.status(200).json({
       success: true,
@@ -274,3 +352,47 @@ exports.updateUserRole = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Get paginated, filtered audit logs
+// @route   GET /api/admin/audit-logs
+// @access  Private (Admin only)
+exports.getAuditLogs = async (req, res, next) => {
+  try {
+    const {
+      page,
+      limit,
+      action,
+      actorRole,
+      actorId,
+      entityType,
+      entityId,
+      outcome,
+      from,
+      to,
+      search
+    } = req.query;
+
+    const result = await auditLogService.getAuditLogs({
+      page,
+      limit,
+      action,
+      actorRole,
+      actorId,
+      entityType,
+      entityId,
+      outcome,
+      from,
+      to,
+      search
+    });
+
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    return res.status(200).json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
