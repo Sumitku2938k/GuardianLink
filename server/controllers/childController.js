@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const Child = require("../models/Child");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
 const { enrollChildBiometric } = require("../services/childBiometricService");
+const { validateImageBuffer } = require("../utils/imageSecurityValidator");
 const aiService = require("../services/aiService");
 const auditLogService = require("../services/auditLogService");
 
@@ -114,6 +115,19 @@ exports.createChild = async (req, res, next) => {
 
     // Process photo: If multipart file uploaded, send to Cloudinary
     if (req.file) {
+      try {
+        validateImageBuffer(req.file.buffer, {
+          filename: req.file.originalname,
+          declaredMime: req.file.mimetype
+        });
+      } catch (valErr) {
+        return res.status(valErr.status || 400).json({
+          success: false,
+          message: valErr.message,
+          code: valErr.code || "INVALID_IMAGE"
+        });
+      }
+
       try {
         uploadedPhoto = await uploadImage(req.file.buffer, {
           folder: "guardianlink/children"
@@ -344,6 +358,19 @@ exports.updateChild = async (req, res, next) => {
     // Handle new photo upload if provided via multipart/form-data
     if (req.file) {
       try {
+        validateImageBuffer(req.file.buffer, {
+          filename: req.file.originalname,
+          declaredMime: req.file.mimetype
+        });
+      } catch (valErr) {
+        return res.status(valErr.status || 400).json({
+          success: false,
+          message: valErr.message,
+          code: valErr.code || "INVALID_IMAGE"
+        });
+      }
+
+      try {
         newUpload = await uploadImage(req.file.buffer, {
           folder: `guardianlink/children/${child._id}`
         });
@@ -514,6 +541,19 @@ exports.updateChildPhoto = async (req, res, next) => {
         success: false,
         message: "Please attach an image file with key 'photo'.",
         code: "MISSING_IMAGE_FILE"
+      });
+    }
+
+    try {
+      validateImageBuffer(req.file.buffer, {
+        filename: req.file.originalname,
+        declaredMime: req.file.mimetype
+      });
+    } catch (valErr) {
+      return res.status(valErr.status || 400).json({
+        success: false,
+        message: valErr.message,
+        code: valErr.code || "INVALID_IMAGE"
       });
     }
 

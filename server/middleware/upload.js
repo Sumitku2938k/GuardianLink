@@ -1,9 +1,12 @@
 const multer = require("multer");
 const path = require("path");
-
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const {
+  validateImageBuffer,
+  ImageSecurityError,
+  ALLOWED_MIME_TYPES,
+  ALLOWED_EXTENSIONS,
+  MAX_FILE_SIZE
+} = require("../utils/imageSecurityValidator");
 
 const storage = multer.memoryStorage();
 
@@ -32,6 +35,7 @@ const multerInstance = multer({
 
 /**
  * Middleware handling single image upload on 'photo' field with clean error responses
+ * and deep binary header security validation.
  */
 const uploadPhoto = (req, res, next) => {
   // If request is application/json or does not have multipart boundary, let standard body parsers handle it
@@ -41,43 +45,63 @@ const uploadPhoto = (req, res, next) => {
   }
 
   multerInstance.single("photo")(req, res, (err) => {
-    if (!err) return next();
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            success: false,
+            message: "Image file exceeds the 5MB size limit.",
+            code: "IMAGE_TOO_LARGE"
+          });
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({
+            success: false,
+            message: `Unexpected file field: '${err.field}'. Expected 'photo'.`,
+            code: "UNEXPECTED_FILE_FIELD"
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          message: `File upload error: ${err.message}`,
+          code: err.code || "UPLOAD_ERROR"
+        });
+      }
 
-    if (err instanceof multer.MulterError) {
-      if (err.code === "LIMIT_FILE_SIZE") {
+      if (err.code === "INVALID_FILE_TYPE") {
         return res.status(400).json({
           success: false,
-          message: "Image file exceeds the 5MB size limit.",
-          code: "IMAGE_TOO_LARGE"
+          message: err.message,
+          code: "INVALID_FILE_TYPE"
         });
       }
-      if (err.code === "LIMIT_UNEXPECTED_FILE") {
-        return res.status(400).json({
-          success: false,
-          message: `Unexpected file field: '${err.field}'. Expected 'photo'.`,
-          code: "UNEXPECTED_FILE_FIELD"
-        });
-      }
-      return res.status(400).json({
+
+      return res.status(err.status || 400).json({
         success: false,
-        message: `File upload error: ${err.message}`,
-        code: err.code || "UPLOAD_ERROR"
+        message: err.message || "Failed to process image file upload.",
+        code: err.code || "FILE_UPLOAD_FAILED"
       });
     }
 
-    if (err.code === "INVALID_FILE_TYPE") {
-      return res.status(400).json({
-        success: false,
-        message: err.message,
-        code: "INVALID_FILE_TYPE"
-      });
+    // Phase 13 Hardening: Deep binary signature, dimension, and pixel count inspection
+    if (req.file && req.file.buffer) {
+      try {
+        const metadata = validateImageBuffer(req.file.buffer, {
+          filename: req.file.originalname,
+          declaredMime: req.file.mimetype,
+          maxSize: MAX_FILE_SIZE
+        });
+        req.file.imageMetadata = metadata;
+      } catch (validationErr) {
+        return res.status(validationErr.status || 400).json({
+          success: false,
+          message: validationErr.message,
+          code: validationErr.code || "INVALID_IMAGE"
+        });
+      }
     }
 
-    return res.status(err.status || 400).json({
-      success: false,
-      message: err.message || "Failed to process image file upload.",
-      code: err.code || "FILE_UPLOAD_FAILED"
-    });
+    return next();
   });
 };
 
@@ -85,5 +109,7 @@ module.exports = {
   uploadPhoto,
   ALLOWED_MIME_TYPES,
   ALLOWED_EXTENSIONS,
-  MAX_FILE_SIZE
+  MAX_FILE_SIZE,
+  validateImageBuffer,
+  ImageSecurityError
 };
