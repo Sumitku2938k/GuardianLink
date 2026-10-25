@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000, description="Bind port number")
     LOG_LEVEL: str = Field(default="info", description="Logging verbosity")
 
+    # Environment
+    ENVIRONMENT: str = Field(
+        default="development",
+        description="Runtime environment (development, test, or production)",
+    )
+
     # Internal Service Security
     INTERNAL_SERVICE_KEY: str = Field(
         default="dev_internal_secret_change_in_production",

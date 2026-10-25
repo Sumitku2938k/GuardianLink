@@ -71,13 +71,14 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Application factory building the FastAPI application instance."""
+    is_production = settings.ENVIRONMENT.lower() == "production"
     app = FastAPI(
         title="GuardianLink AI Microservice",
         description="Internal facial biometric recognition and vector similarity search service.",
         version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
         lifespan=lifespan,
     )
 
