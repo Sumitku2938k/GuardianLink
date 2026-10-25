@@ -19,21 +19,26 @@ async def verify_internal_key(
     Validates that incoming internal requests supply the expected shared secret key.
     Uses constant-time comparison to prevent timing side-channel attacks.
     """
-    if not x_internal_service_key:
+    if not x_internal_service_key or not x_internal_service_key.strip():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing required header: X-Internal-Service-Key",
             headers={"WWW-Authenticate": "InternalKey"},
         )
 
-    expected_key = settings.INTERNAL_SERVICE_KEY
+    expected_key = (settings.INTERNAL_SERVICE_KEY or "").strip()
+    if not expected_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI service internal authentication key is unconfigured. Fail-closed.",
+        )
 
     # Use constant-time comparison to protect against timing attacks
-    if not secrets.compare_digest(x_internal_service_key, expected_key):
+    if not secrets.compare_digest(x_internal_service_key.strip(), expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid internal service key. Access denied.",
             headers={"WWW-Authenticate": "InternalKey"},
         )
 
-    return x_internal_service_key
+    return x_internal_service_key.strip()

@@ -51,9 +51,7 @@ async def get_health() -> HealthResponse:
         models_loaded=models_loaded,
         qdrant_connected=qdrant_connected,
         details={
-            "collection_name": settings.COLLECTION_NAME,
             "collection_ready": collection_ready,
-            "model_name": settings.MODEL_NAME,
             "threshold": settings.FACE_MATCH_THRESHOLD,
         },
     )

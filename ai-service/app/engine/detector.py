@@ -12,6 +12,10 @@ import cv2
 
 from app.engine.face_engine import FaceEngine, ImageDecodeError
 
+# Security constants for image decoding and decompression bomb protection
+MAX_IMAGE_DIMENSION = 4096
+MAX_TOTAL_PIXELS = 16_777_216  # 16 MP
+
 
 def decode_image_input(image_input: Union[str, bytes, bytearray, np.ndarray]) -> np.ndarray:
     """
@@ -82,10 +86,8 @@ def decode_image_input(image_input: Union[str, bytes, bytearray, np.ndarray]) ->
         if image is None:
             raise ImageDecodeError("Failed to decode image from binary bytes (corrupt or unsupported format).")
 
-        return image
-
     # 3. Handle filesystem path string
-    if isinstance(image_input, str):
+    elif isinstance(image_input, str):
         trimmed_path = image_input.strip()
         if not trimmed_path:
             raise ImageDecodeError("Image file path string cannot be empty.")
@@ -100,11 +102,22 @@ def decode_image_input(image_input: Union[str, bytes, bytearray, np.ndarray]) ->
         if image is None:
             raise ImageDecodeError(f"Could not decode image from file path: '{trimmed_path}'")
 
-        return image
+    else:
+        raise ImageDecodeError(
+            f"Unsupported image input type '{type(image_input).__name__}'. Expected str, bytes, or np.ndarray."
+        )
 
-    raise ImageDecodeError(
-        f"Unsupported image input type '{type(image_input).__name__}'. Expected str, bytes, or np.ndarray."
-    )
+    # Validate image dimensions and pixel count bounds (Decompression Bomb Protection)
+    h, w = image.shape[:2]
+    if h <= 0 or w <= 0:
+        raise ImageDecodeError(f"Image dimensions must be positive, got height={h}, width={w}.")
+    if h > MAX_IMAGE_DIMENSION or w > MAX_IMAGE_DIMENSION or (h * w) > MAX_TOTAL_PIXELS:
+        raise ImageDecodeError(
+            f"Image dimensions ({w}x{h}, {h*w} pixels) exceed safety limits "
+            f"(max {MAX_IMAGE_DIMENSION}x{MAX_IMAGE_DIMENSION}, {MAX_TOTAL_PIXELS} pixels)."
+        )
+
+    return image
 
 
 def get_raw_faces(image_input: Union[str, bytes, bytearray, np.ndarray]) -> Tuple[np.ndarray, List[Any]]:
