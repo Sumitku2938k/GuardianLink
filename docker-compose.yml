@@ -8,6 +8,14 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    networks:
+      - guardianlink-backend-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # 2. Redis In-Memory Cache Container
   redis:
@@ -18,6 +26,14 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - guardianlink-backend-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # 3. Node.js Express Backend API Container
   server:
@@ -47,9 +63,23 @@ services:
     volumes:
       - ./server:/app
       - /app/node_modules
+    networks:
+      - guardianlink-public-net
+      - guardianlink-backend-net
+      - guardianlink-internal-net
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # 4. React Vite Frontend Client Container
   client:
@@ -65,8 +95,17 @@ services:
     volumes:
       - ./client:/app
       - /app/node_modules
+    networks:
+      - guardianlink-public-net
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # 5. Mongo Express Web-based Database Browser GUI
   mongo-express:
@@ -79,8 +118,11 @@ services:
       ME_CONFIG_MONGODB_SERVER: mongo
       ME_CONFIG_MONGODB_PORT: 27017
       ME_CONFIG_BASICAUTH: "false"
+    networks:
+      - guardianlink-backend-net
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
   # 6. Standalone Qdrant Vector Database Container (Phase 6.4)
   qdrant:
@@ -91,6 +133,8 @@ services:
       - "127.0.0.1:6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
+    networks:
+      - guardianlink-internal-net
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e \"GET /healthz HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nConnection: close\\r\\n\\r\\n\" >&3 && cat <&3 | grep -q \"healthz check passed\"'"]
       interval: 10s
@@ -119,7 +163,10 @@ services:
       MODEL_NAME: buffalo_l
       INSIGHTFACE_HOME: /root/.insightface
     volumes:
+      - ./ai-service/app:/app/app
       - ${INSIGHTFACE_CACHE_DIR:-./ai-service/models}:/root/.insightface/models:ro
+    networks:
+      - guardianlink-internal-net
     depends_on:
       qdrant:
         condition: service_healthy
@@ -129,6 +176,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+networks:
+  guardianlink-public-net:
+    driver: bridge
+  guardianlink-backend-net:
+    driver: bridge
+  guardianlink-internal-net:
+    driver: bridge
 
 volumes:
   mongo_data:

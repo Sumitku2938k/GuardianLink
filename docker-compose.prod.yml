@@ -1,16 +1,22 @@
 # ==============================================================================
-# GuardianLink — Phase 13: Hardened Production Docker Compose Configuration
+# GuardianLink — Phase 14: Hardened Production Docker Compose Configuration
 # ==============================================================================
-# In production, AI Service and Qdrant are isolated to internal private network.
-# Zero host ports are published for AI Service (8000), Qdrant (6333), or databases.
-# External access is restricted exclusively to frontend (3000) and backend API (5000).
+# Production 3-Tier Network Architecture:
+# 1. Public Ingress: guardianlink-public-net (Client & Express Server only)
+# 2. Backend Data Tier: guardianlink-backend-net (Express Server, MongoDB, Redis)
+# 3. AI Biometric Tier: guardianlink-internal-net (Express Server, AI Service, Qdrant)
 #
-# Usage:
+# Zero host ports are published for AI Service (8000), Qdrant (6333), MongoDB (27017), or Redis (6379).
+# External host ingress is restricted exclusively to Frontend (3000) and Backend API (5000).
+# Administrative tools (mongo-express) are strictly excluded.
+#
+# Validation & Startup:
+#   docker compose -f docker-compose.prod.yml config
 #   docker compose -f docker-compose.prod.yml up -d
 # ==============================================================================
 
 services:
-  # 1. MongoDB Database Container (Internal Only)
+  # 1. MongoDB Database Container (Backend Data Tier — Internal Only)
   mongo:
     image: mongo:8.0
     container_name: guardianlink-mongo-prod
@@ -20,9 +26,15 @@ services:
     volumes:
       - mongo_data:/data/db
     networks:
-      - guardianlink-internal-net
+      - guardianlink-backend-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-  # 2. Redis Cache Container (Internal Only)
+  # 2. Redis Cache Container (Backend Data Tier — Internal Only)
   redis:
     image: redis:7-alpine
     container_name: guardianlink-redis-prod
@@ -32,9 +44,15 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - guardianlink-internal-net
+      - guardianlink-backend-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-  # 3. Standalone Qdrant Vector Database Container (Internal Only)
+  # 3. Standalone Qdrant Vector Database Container (AI Biometric Tier — Internal Only)
   qdrant:
     image: qdrant/qdrant:v1.19.2
     container_name: guardianlink-qdrant-prod
@@ -52,7 +70,7 @@ services:
     networks:
       - guardianlink-internal-net
 
-  # 4. FastAPI AI Microservice Container (Private Network Only — Port 8000 Unmapped)
+  # 4. FastAPI AI Microservice Container (AI Biometric Tier — Port 8000 Unmapped)
   ai-service:
     build:
       context: ./ai-service
@@ -65,7 +83,7 @@ services:
       HOST: "0.0.0.0"
       PORT: 8000
       ENVIRONMENT: production
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY must be configured for production}
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY must be configured for production}"
       QDRANT_URL: http://qdrant:6333
       COLLECTION_NAME: missing_person_faces
       QDRANT_TIMEOUT_SECONDS: 10.0
@@ -74,7 +92,7 @@ services:
       MODEL_NAME: buffalo_l
       INSIGHTFACE_HOME: /root/.insightface
     volumes:
-      - ${INSIGHTFACE_CACHE_DIR:-./ai-service/models}:/root/.insightface/models:ro
+      - "${INSIGHTFACE_CACHE_DIR:-./ai-service/models}:/root/.insightface/models:ro"
     depends_on:
       qdrant:
         condition: service_healthy
@@ -87,7 +105,7 @@ services:
     networks:
       - guardianlink-internal-net
 
-  # 5. Node.js Express Backend API Container (Bridge between Public & Internal)
+  # 5. Node.js Express Backend API Container (Secure Mediator Across All Tiers)
   server:
     build:
       context: ./server
@@ -102,21 +120,31 @@ services:
       CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
       MONGO_URI: mongodb://mongo:27017/guardianlink
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?Error: JWT_SECRET required}
-      SESSION_SECRET: ${SESSION_SECRET:?Error: SESSION_SECRET required}
-      COOKIE_SECRET: ${COOKIE_SECRET:?Error: COOKIE_SECRET required}
+      JWT_SECRET: "${JWT_SECRET:?Error: JWT_SECRET required}"
+      SESSION_SECRET: "${SESSION_SECRET:?Error: SESSION_SECRET required}"
+      COOKIE_SECRET: "${COOKIE_SECRET:?Error: COOKIE_SECRET required}"
       AI_SERVICE_URL: http://ai-service:8000
-      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY required}
+      INTERNAL_SERVICE_KEY: "${INTERNAL_SERVICE_KEY:?Error: INTERNAL_SERVICE_KEY required}"
       AI_SERVICE_TIMEOUT_MS: 10000
     depends_on:
-      - mongo
-      - redis
-      - ai-service
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
-      - guardianlink-internal-net
       - guardianlink-public-net
+      - guardianlink-backend-net
+      - guardianlink-internal-net
 
-  # 6. React Vite Frontend Client Container (Public Ingress)
+  # 6. React Vite Frontend Client Container (Public Ingress Tier)
   client:
     build:
       context: ./client
@@ -128,17 +156,27 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:5000}
     depends_on:
-      - server
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - guardianlink-public-net
 
 networks:
-  # Internal network with no public gateway exposure for AI, vector DB, and data stores
-  guardianlink-internal-net:
-    driver: bridge
-    internal: false # allows container-to-container DNS resolution while restricting ingress
-  # Public-facing network for client and backend API
+  # Public ingress tier: Frontend & Backend API (Permits external web ingress & server Cloudinary egress)
   guardianlink-public-net:
+    driver: bridge
+  # Backend data tier: Backend API, MongoDB, Redis (Completely isolated from external internet)
+  guardianlink-backend-net:
+    driver: bridge
+    internal: true
+  # AI biometric tier: Backend API, AI Service, Qdrant
+  guardianlink-internal-net:
     driver: bridge
 
 volumes:
