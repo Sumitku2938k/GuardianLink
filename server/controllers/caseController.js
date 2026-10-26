@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
+const aiService = require("../services/aiService");
 
 /**
  * Valid state machine transitions for MissingCase lifecycle
@@ -455,6 +456,124 @@ exports.updateCaseStatus = async (req, res, next) => {
       success: true,
       message: `Case status successfully updated to '${targetStatus}'.`,
       case: missingCase.toSafeObject()
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Match a citizen-submitted photo against enrolled missing children
+ * @route   POST /api/cases/match
+ * @access  Private (Citizen, Police, NGO, Admin, Parent)
+ */
+exports.matchMissingChild = async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "Please attach a photo with key 'photo' for facial matching.",
+        code: "MISSING_IMAGE"
+      });
+    }
+
+    // Call AI Service for candidate face vectors
+    const searchResult = await aiService.searchFace(req.file.buffer, {
+      mimeType: req.file.mimetype || "image/jpeg",
+      threshold: req.query.threshold ? Number(req.query.threshold) : undefined
+    });
+
+    if (!searchResult.success) {
+      if (
+        searchResult.status === 400 ||
+        ["NO_FACE_DETECTED", "MULTIPLE_FACES_DETECTED", "INVALID_IMAGE_TYPE", "INVALID_IMAGE"].includes(searchResult.code)
+      ) {
+        return res.status(400).json({
+          success: false,
+          code: searchResult.code,
+          message: searchResult.message
+        });
+      }
+
+      return res.status(503).json({
+        success: false,
+        code: "AI_SERVICE_UNAVAILABLE",
+        message: "Facial matching service is temporarily unavailable. Please try again later."
+      });
+    }
+
+    if (!searchResult.matches || searchResult.matches.length === 0) {
+      return res.status(200).json({
+        success: true,
+        matchFound: false,
+        candidates: []
+      });
+    }
+
+    // Resolve candidate child IDs against GuardianLink MongoDB
+    const candidateChildIds = searchResult.matches
+      .map((m) => m.childId)
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id));
+
+    if (candidateChildIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        matchFound: false,
+        candidates: []
+      });
+    }
+
+    // Filter to active children only
+    const children = await Child.find({
+      _id: { $in: candidateChildIds },
+      status: "active"
+    });
+    const childMap = new Map(children.map((c) => [c._id.toString(), c]));
+
+    // Query eligible MissingCase incidents in GuardianLink MongoDB
+    // CRITICAL REQUIREMENT: Only return cases that satisfy eligible missing-case statuses!
+    // Historical, resolved, closed, and cancelled incidents MUST NOT be returned!
+    const eligibleStatuses = ["reported", "under_verification", "active"];
+    const eligibleCases = await MissingCase.find({
+      childId: { $in: children.map((c) => c._id) },
+      status: { $in: eligibleStatuses }
+    });
+    const caseMap = new Map(eligibleCases.map((cs) => [cs.childId.toString(), cs]));
+
+    // Build privacy-safe authorized response
+    const authorizedCandidates = [];
+    for (const match of searchResult.matches) {
+      const child = childMap.get(match.childId);
+      const missingCase = child ? caseMap.get(child._id.toString()) : null;
+
+      if (child && missingCase) {
+        // Privacy guard: Never leak parent phone, email, or private home address
+        const score = match.score;
+        authorizedCandidates.push({
+          caseId: missingCase._id.toString(),
+          caseNumber: missingCase.policeCaseNumber || `MC-${missingCase._id.toString().slice(-4)}`,
+          childId: child._id.toString(),
+          childName: child.fullName,
+          childAge: child.age,
+          gender: child.gender,
+          photo: child.photoUrl,
+          reportedLocation:
+            missingCase.lastSeenLocation?.address ||
+            [missingCase.lastSeenLocation?.city, missingCase.lastSeenLocation?.state].filter(Boolean).join(", ") ||
+            "Location on file",
+          missingDate: missingCase.missingDate,
+          similarityScore: score,
+          confidenceScore: `${(score * 100).toFixed(1)}%`,
+          similarityLevel: score >= 0.7 ? "High Similarity" : "Moderate Similarity",
+          verificationStatus: "Identity Verification Required"
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      matchFound: authorizedCandidates.length > 0,
+      candidates: authorizedCandidates
     });
   } catch (error) {
     next(error);

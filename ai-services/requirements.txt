@@ -1,0 +1,17 @@
+fastapi[standard]
+pymongo
+python-dotenv
+cloudinary
+PyJWT
+pwdlib[argon2]
+Authlib
+itsdangerous
+email-validator
+
+qdrant-client
+
+opencv-python
+insightface
+onnxruntime
+
+matplotlib

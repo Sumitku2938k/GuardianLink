@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Child = require("../models/Child");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
+const aiService = require("../services/aiService");
 
 /**
  * Helper to safely parse JSON strings from multipart/form-data
@@ -182,6 +183,23 @@ exports.createChild = async (req, res, next) => {
         await deleteImage(uploadedPhoto.cloudinaryPublicId);
       }
       throw saveErr;
+    }
+
+    // Biometric AI Enrollment (Non-blocking: failure never rolls back the valid child record)
+    if (req.file && req.file.buffer) {
+      try {
+        const enrollResult = await aiService.enrollChildFace(
+          child._id.toString(),
+          req.file.buffer,
+          req.file.mimetype || "image/jpeg"
+        );
+        if (enrollResult.success && enrollResult.qdrantId) {
+          child.faceProfileId = enrollResult.qdrantId;
+          await child.save();
+        }
+      } catch (aiErr) {
+        console.warn("[ChildController] AI Biometric Enrollment error (gracefully skipped):", aiErr.message);
+      }
     }
 
     return res.status(201).json({
@@ -407,6 +425,23 @@ exports.updateChild = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    // Biometric AI Re-enrollment when photo changes via general update
+    if (req.file && req.file.buffer) {
+      try {
+        const enrollResult = await aiService.enrollChildFace(
+          child._id.toString(),
+          req.file.buffer,
+          req.file.mimetype || "image/jpeg"
+        );
+        if (enrollResult.success && enrollResult.qdrantId) {
+          child.faceProfileId = enrollResult.qdrantId;
+          await child.save();
+        }
+      } catch (aiErr) {
+        console.warn("[ChildController] AI Biometric Re-enrollment error:", aiErr.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Child profile updated successfully.",
@@ -489,6 +524,23 @@ exports.updateChildPhoto = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    // Biometric AI Re-enrollment with newly persisted photo
+    if (req.file && req.file.buffer) {
+      try {
+        const enrollResult = await aiService.enrollChildFace(
+          child._id.toString(),
+          req.file.buffer,
+          req.file.mimetype || "image/jpeg"
+        );
+        if (enrollResult.success && enrollResult.qdrantId) {
+          child.faceProfileId = enrollResult.qdrantId;
+          await child.save();
+        }
+      } catch (aiErr) {
+        console.warn("[ChildController] AI Biometric Re-enrollment error:", aiErr.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Child photo updated successfully.",
@@ -534,8 +586,16 @@ exports.deleteChildPhoto = async (req, res, next) => {
       await deleteImage(oldPublicId);
     }
 
+    // Remove obsolete vector from dedicated Qdrant collection
+    try {
+      await aiService.deleteChildFace(child._id.toString());
+    } catch (aiErr) {
+      console.warn("[ChildController] AI Biometric Unenroll error:", aiErr.message);
+    }
+
     child.photoUrl = "";
     child.cloudinaryPublicId = "";
+    child.faceProfileId = "";
     child.photos = [];
 
     await child.save();
@@ -590,6 +650,13 @@ exports.updateChildStatus = async (req, res, next) => {
     }
 
     child.status = requestedStatus;
+    if (requestedStatus === "inactive") {
+      try {
+        await aiService.deleteChildFace(child._id.toString());
+      } catch (aiErr) {
+        console.warn("[ChildController] AI vector unenroll on deactivation error:", aiErr.message);
+      }
+    }
     await child.save();
 
     return res.status(200).json({

@@ -41,12 +41,16 @@ services:
       ADMIN_EMAIL: admin@guardianlink.local
       ADMIN_PASSWORD: AdminDev@GuardianLink2026!
       ADMIN_PHONE: "9999900000"
+      AI_SERVICE_URL: http://ai-service:8001
+      AI_SERVICE_SECRET: guardianlink_ai_internal_secret_2026
+      AI_MATCH_THRESHOLD: "0.55"
     volumes:
       - ./server:/app
       - /app/node_modules
     depends_on:
       - mongo
       - redis
+      - ai-service
 
   # 4. React Vite Frontend Client Container
   client:
@@ -79,6 +83,25 @@ services:
     depends_on:
       - mongo
 
+  # 6. Dedicated GuardianLink AI Integration Container
+  ai-service:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile
+    container_name: guardianlink-ai-service
+    restart: unless-stopped
+    expose:
+      - "8001"
+    environment:
+      AI_SERVICE_SECRET: guardianlink_ai_internal_secret_2026
+      GUARDIANLINK_QDRANT_PATH: /app/guardianlink_qdrant_data
+      GUARDIANLINK_QDRANT_COLLECTION: guardianlink_children_faces
+    volumes:
+      - ./ai-services:/app
+      - ai_qdrant_data:/app/guardianlink_qdrant_data
+
 volumes:
   mongo_data:
   redis_data:
+  ai_qdrant_data:
+

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from "react";
+import api from "@/lib/axios";
 
 const CitizenContext = createContext();
 
@@ -156,8 +157,8 @@ export const CitizenProvider = ({ children }) => {
     setWorkflowSession((prev) => ({ ...prev, photoUrl }));
   };
 
-  // Run AI Matching Simulation
-  const runAIMatching = (forceNoMatch = false) => {
+  // Run AI Matching (Calls real Express /api/cases/match endpoint with fallback)
+  const runAIMatching = async (forceNoMatch = false) => {
     if (forceNoMatch) {
       setWorkflowSession((prev) => ({
         ...prev,
@@ -167,26 +168,55 @@ export const CitizenProvider = ({ children }) => {
       return "no_match";
     }
 
-    // Default simulation returns potential match for demo child Kabir Mehta
-    const candidate = {
-      caseId: "MC-2026-8821",
-      caseNumber: "MC-2026-8821",
-      childName: "Kabir Mehta",
-      childAge: 10,
-      confidenceScore: "94.8%",
-      similarityLevel: "High Similarity",
-      verificationStatus: "Identity Verification Required",
-      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      reportedLocation: "Central Metro Station Gate #3, Sector 12"
-    };
+    try {
+      let imageBlob = workflowSession.photoFile || null;
+      if (!imageBlob && workflowSession.photoUrl) {
+        try {
+          const res = await fetch(workflowSession.photoUrl);
+          imageBlob = await res.blob();
+        } catch (fetchErr) {
+          console.warn("Could not fetch photo blob:", fetchErr);
+        }
+      }
 
+      if (imageBlob) {
+        const formData = new FormData();
+        formData.append("photo", imageBlob, "citizen_match.jpg");
+
+        const response = await api.post("/api/cases/match", formData);
+        if (
+          response.data?.success &&
+          response.data?.matchFound &&
+          Array.isArray(response.data?.candidates) &&
+          response.data.candidates.length > 0
+        ) {
+          const candidate = response.data.candidates[0];
+          setWorkflowSession((prev) => ({
+            ...prev,
+            aiResult: "match_found",
+            matchedCandidate: candidate
+          }));
+          return "match_found";
+        } else {
+          setWorkflowSession((prev) => ({
+            ...prev,
+            aiResult: "no_match",
+            matchedCandidate: null
+          }));
+          return "no_match";
+        }
+      }
+    } catch (error) {
+      console.warn("Real AI matching unavailable or failed:", error.message);
+    }
+
+    // Fallback if real vector lookup yields no match or endpoint unreachable in demo
     setWorkflowSession((prev) => ({
       ...prev,
-      aiResult: "match_found",
-      matchedCandidate: candidate
+      aiResult: "no_match",
+      matchedCandidate: null
     }));
-
-    return "match_found";
+    return "no_match";
   };
 
   // Request Guardian Contact

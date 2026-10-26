@@ -13,8 +13,8 @@ export default function FoundChildMatching() {
     }
   }, [workflowSession.photoUrl, navigate]);
 
-  const handleCompleteMatching = () => {
-    runAIMatching(false); // Runs simulation returning candidate Kabir Mehta
+  const handleCompleteMatching = async () => {
+    await runAIMatching(false);
     navigate("/citizen/found-child/result");
   };
 
