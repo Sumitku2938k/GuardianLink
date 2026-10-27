@@ -1,0 +1,27 @@
+# Local environment configuration & secrets
+.env
+.env.local
+.env.*.local
+
+# Dependency and build directories
+node_modules/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python & Vector DB persistence
+.venv/
+__pycache__/
+*.pyc
+qdrant_data/
+guardianlink_qdrant_data/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

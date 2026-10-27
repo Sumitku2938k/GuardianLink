@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+qdrant_data
+guardianlink_qdrant_data
+.git
+.gitignore
