@@ -128,6 +128,7 @@ services:
     volumes:
       - ./ai-services:/app
       - ai_qdrant_data:/app/guardianlink_qdrant_data
+      - insightface_models:/root/.insightface
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/"]
       interval: 10s
@@ -139,6 +140,7 @@ volumes:
   mongo_data:
   redis_data:
   ai_qdrant_data:
+  insightface_models:
 
 networks:
   default:
