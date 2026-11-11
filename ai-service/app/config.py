@@ -4,7 +4,7 @@ Uses environment variables with safe development defaults.
 """
 
 from typing import Tuple
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +76,25 @@ class Settings(BaseSettings):
         ge=1024,
         description="Maximum allowed image upload size in bytes (default: 10 MB)",
     )
+
+    @model_validator(mode="after")
+    def validate_production_configuration(self) -> "Settings":
+        """Fail closed if insecure secrets or placeholders are used in production."""
+        if self.ENVIRONMENT.lower() == "production":
+            key = (self.INTERNAL_SERVICE_KEY or "").strip()
+            insecure_placeholders = {
+                "dev_internal_secret_change_in_production",
+                "change_in_production",
+                "your_secure_internal_service_key_here",
+                "secret",
+                "123456",
+            }
+            if not key or key in insecure_placeholders or len(key) < 16:
+                raise ValueError(
+                    "In production mode, INTERNAL_SERVICE_KEY must be a cryptographically secure, "
+                    "non-default secret of at least 16 characters."
+                )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

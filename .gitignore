@@ -4,6 +4,7 @@
 
 # Secrets & Environment Configurations
 .env
+.env.*
 .env.local
 .env.*.local
 *.env

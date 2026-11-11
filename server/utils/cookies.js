@@ -13,7 +13,8 @@ const sendTokenResponse = async (user, statusCode, res) => {
     email: safeUser.email
   };
 
-  const secret = process.env.JWT_SECRET || "guardianlink_super_secret_jwt_key_2026_safe_child_platform";
+  const { getJwtSecret, isProduction } = require("../config/envValidator");
+  const secret = getJwtSecret();
 
   // Sign Token
   const token = jwt.sign(payload, secret, {
@@ -31,8 +32,8 @@ const sendTokenResponse = async (user, statusCode, res) => {
   // Cookie Options
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction(),
+    sameSite: isProduction() ? "strict" : "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
   };

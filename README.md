@@ -343,5 +343,118 @@ docker compose down
 ```
 
 ---
+
+## 🚀 Phase 15: Production Readiness, Secret Management & Deployment Runbook
+
+### 1. Canonical Environment Configuration Contract
+
+| Variable | Consumer Service | Scope | Sensitivity | Production Requirement |
+| :--- | :--- | :--- | :--- | :--- |
+| `NODE_ENV` | Express Backend | Runtime | Non-sensitive | Must be set to `production` (enables fail-closed security & secure cookies) |
+| `ENVIRONMENT` | FastAPI AI Service | Runtime | Non-sensitive | Must be set to `production` (disables Swagger/OpenAPI docs) |
+| `PORT` | Express Backend | Runtime | Non-sensitive | Bind port inside container (default: `5000`) |
+| `CLIENT_URL` | Express Backend | Runtime | Non-sensitive | Public client origin for CORS allowlisting (e.g. `https://guardianlink.org`) |
+| `MONGO_URI` | Express Backend | Runtime | **Critical Secret** | Connection string to MongoDB (e.g. `mongodb+srv://...` for Atlas) |
+| `REDIS_URL` | Express Backend | Runtime | **Critical Secret** | Redis URL (e.g. `rediss://...` for TLS-enabled Upstash / ElastiCache) |
+| `JWT_SECRET` | Express Backend | Runtime | **Critical Secret** | Cryptographic key (min 32 chars); fails closed if missing or placeholder |
+| `SESSION_SECRET` | Express Backend | Runtime | **Critical Secret** | Cryptographic session salt (min 32 chars); fails closed in production |
+| `COOKIE_SECRET` | Express Backend | Runtime | **Critical Secret** | Signed cookie encryption key (min 32 chars); fails closed in production |
+| `INTERNAL_SERVICE_KEY` | Express & FastAPI | Runtime | **Critical Secret** | Pre-shared key for `X-Internal-Service-Key` service-to-service auth (min 16 chars) |
+| `AI_SERVICE_URL` | Express Backend | Runtime | Internal Private | Internal endpoint resolving to AI service (`http://ai-service:8000`) |
+| `AI_SERVICE_TIMEOUT_MS` | Express Backend | Runtime | Non-sensitive | Timeout for inter-service AI requests (default: `10000`) |
+| `CLOUDINARY_CLOUD_NAME` | Express Backend | Runtime | Secret ID | Cloudinary storage account name |
+| `CLOUDINARY_API_KEY` | Express Backend | Runtime | **Critical Secret** | Cloudinary server-side API key |
+| `CLOUDINARY_API_SECRET` | Express Backend | Runtime | **Critical Secret** | Cloudinary server-side API secret |
+| `ADMIN_NAME` | Express Backend | Bootstrap | Non-sensitive | Initial administrator display name |
+| `ADMIN_EMAIL` | Express Backend | Bootstrap | Non-sensitive | Initial administrator email address |
+| `ADMIN_PASSWORD` | Express Backend | Bootstrap | **Critical Secret** | Initial admin password (min 12 chars; rejects defaults in production) |
+| `ADMIN_PHONE` | Express Backend | Bootstrap | Non-sensitive | Initial administrator phone number |
+| `QDRANT_URL` | FastAPI AI Service | Runtime | Internal Private | Qdrant endpoint (`http://qdrant:6333` or managed cloud URL) |
+| `QDRANT_API_KEY` | FastAPI AI Service | Runtime | **Critical Secret** | Optional API key for authenticated Qdrant instances |
+| `COLLECTION_NAME` | FastAPI AI Service | Runtime | Non-sensitive | Vector collection name (`missing_person_faces`) |
+| `FACE_MATCH_THRESHOLD`| FastAPI AI Service | Runtime | Non-sensitive | Biometric cosine similarity threshold (default: `0.60`) |
+| `VITE_API_BASE_URL` | React Frontend | Build-time | **Public Only** | Browser-facing backend API URL (e.g. `https://api.guardianlink.org`) |
+
+### 2. Production Docker Build & Deployment
+
+To build and deploy the hardened production stack:
+
+```bash
+# 1. Provide production secrets via deployment platform or secure environment:
+export JWT_SECRET=$(openssl rand -hex 32)
+export SESSION_SECRET=$(openssl rand -hex 32)
+export COOKIE_SECRET=$(openssl rand -hex 32)
+export INTERNAL_SERVICE_KEY=$(openssl rand -hex 32)
+export CLIENT_URL="https://guardianlink.org"
+export VITE_API_BASE_URL="https://api.guardianlink.org"
+
+# 2. Validate Compose configuration syntax (verifies fail-closed rules):
+docker compose -f docker-compose.prod.yml config
+
+# 3. Build optimized production images:
+docker compose -f docker-compose.prod.yml build
+
+# 4. Launch isolated production containers in detached mode:
+docker compose -f docker-compose.prod.yml up -d
+
+# 5. Verify service health and container status:
+docker compose -f docker-compose.prod.yml ps
+```
+
+### 3. Managed Database Integration (MongoDB Atlas & Managed Redis)
+
+For cloud deployment using managed database providers:
+1. **Managed MongoDB (MongoDB Atlas):**
+   - Configure network peering or IP access list for your cluster.
+   - Set `MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/guardianlink?retryWrites=true&w=majority`.
+   - The Mongoose connection pool will automatically negotiate TLS and replica set elections.
+2. **Managed Redis (Upstash / AWS ElastiCache / Redis Cloud):**
+   - Configure TLS connectivity using `rediss://` URI scheme:
+     `REDIS_URL=rediss://default:<password>@<endpoint>:6379`.
+   - Redis reconnection strategies automatically handle network partitions.
+
+### 4. Operational Backup & Disaster Recovery Runbook
+
+#### MongoDB Hot Backup & Verification:
+```bash
+# Create consistent BSON archive snapshot with oplog:
+docker compose exec mongo mongodump --archive=/data/db/backup_$(date +%Y%m%d_%H%M%S).gz --gzip --oplog
+
+# Test restore into isolated staging instance:
+mongorestore --uri="mongodb://localhost:27018/guardianlink_restore_test" --archive=backup_test.gz --gzip
+```
+
+#### Qdrant Biometric Vector Snapshot:
+```bash
+# Trigger collection snapshot via Qdrant REST API:
+curl -X POST http://localhost:6333/collections/missing_person_faces/snapshots
+
+# Download snapshot archive for off-site cold storage:
+curl -o missing_faces_snapshot.snapshot http://localhost:6333/collections/missing_person_faces/snapshots/<snapshot-name>
+```
+
+#### Biometric Vector Synchronization & Reconciliation:
+If a database restore occurs without a corresponding Qdrant snapshot:
+- Execute the reconciliation utility:
+  ```bash
+  cd server && node utils/reconcileVectors.js
+  ```
+- This scans active `Child` records and re-indexes embeddings from Cloudinary profile images if missing from Qdrant.
+
+### 5. Application Rollback Procedure
+If a production release encounters critical post-deployment issues:
+1. Re-tag and launch previous stable container images:
+   ```bash
+   docker tag guardianlink-backend:previous guardianlink-backend:prod
+   docker tag guardianlink-frontend:previous guardianlink-frontend:prod
+   docker compose -f docker-compose.prod.yml up -d --no-deps server client
+   ```
+2. Verify system health:
+   ```bash
+   curl -f http://127.0.0.1:5000/api/health
+   curl -f http://127.0.0.1:3000/healthz
+   ```
+
+---
 *Developed with 🛡️ by GuardianLink Team — Child Safety Initiative.*
 

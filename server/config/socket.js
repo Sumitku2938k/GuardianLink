@@ -90,14 +90,16 @@ const initSocket = (httpServer) => {
     "http://127.0.0.1:5173"
   ].filter(Boolean);
 
+  const { getJwtSecret, isProduction } = require("./envValidator");
+
   io = new Server(httpServer, {
     cors: {
       origin: function (origin, callback) {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        if (allowedOrigins.includes(origin) || !isProduction()) {
           return callback(null, origin);
         }
-        return callback(null, origin);
+        return callback(new Error(`CORS origin not allowed: ${origin}`), false);
       },
       credentials: true
     },
@@ -115,7 +117,7 @@ const initSocket = (httpServer) => {
         return next(new Error("UNAUTHORIZED: Missing authentication token."));
       }
 
-      const secret = process.env.JWT_SECRET || "guardianlink_super_secret_jwt_key_2026_safe_child_platform";
+      const secret = getJwtSecret();
       let decoded;
       try {
         decoded = jwt.verify(token, secret);

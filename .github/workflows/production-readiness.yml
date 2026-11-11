@@ -1,0 +1,137 @@
+name: GuardianLink Production Readiness & CI Validation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  secret-scan-and-lint:
+    name: 1. Secret Scanning & Configuration Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify no local .env files are committed to Git
+        run: |
+          echo "Auditing repository for committed .env files..."
+          COMMITTED_ENVS=$(git ls-files | grep -E '(^|/)\.env($|\..*)' | grep -v '\.env\.example$' || true)
+          if [ -n "$COMMITTED_ENVS" ]; then
+            echo "❌ CRITICAL SECURITY VIOLATION: Committed .env files found:"
+            echo "$COMMITTED_ENVS"
+            exit 1
+          fi
+          echo "✅ No sensitive .env files committed to git."
+
+      - name: Verify root .dockerignore and .env.example exist
+        run: |
+          test -f .dockerignore || (echo "❌ Missing root .dockerignore" && exit 1)
+          test -f .env.example || (echo "❌ Missing root .env.example" && exit 1)
+          echo "✅ Essential deployment configurations verified."
+
+  backend-tests:
+    name: 2. Backend Server Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Start MongoDB & Redis Services
+        uses: supercharge/mongodb-github-action@1.11.0
+        with:
+          mongodb-version: 8.0
+
+      - name: Start Redis Service
+        uses: supercharge/redis-github-action@1.8.0
+        with:
+          redis-version: 7
+
+      - name: Install server dependencies
+        working-directory: ./server
+        run: npm ci || npm install
+
+      - name: Execute Server Test Suite
+        working-directory: ./server
+        env:
+          PORT: 5000
+          NODE_ENV: test
+          MONGO_URI: mongodb://127.0.0.1:27017/guardianlink_test
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: ci_test_jwt_secret_key_minimum_32_characters_here
+          SESSION_SECRET: ci_test_session_secret_key_minimum_32_characters
+          COOKIE_SECRET: ci_test_cookie_secret_key_minimum_32_characters
+          INTERNAL_SERVICE_KEY: ci_test_internal_service_key_32_chars_long
+          CLIENT_URL: http://localhost:3000
+        run: npm test
+
+  frontend-validation:
+    name: 3. Frontend Tests & Production Bundle Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci || npm install
+
+      - name: Run Client Test Suite
+        working-directory: ./client
+        run: npm test
+
+      - name: Compile Production Client Bundle
+        working-directory: ./client
+        env:
+          VITE_API_BASE_URL: https://api.guardianlink.local
+        run: npm run build
+
+      - name: Audit Built Assets for Secret Leakage
+        working-directory: ./client
+        run: |
+          echo "Auditing dist/ bundle for sensitive backend secrets..."
+          grep -rn "JWT_SECRET" dist/ && exit 1 || echo "✅ No JWT_SECRET in dist/"
+          grep -rn "INTERNAL_SERVICE_KEY" dist/ && exit 1 || echo "✅ No INTERNAL_SERVICE_KEY in dist/"
+          grep -rn "CLOUDINARY_API_SECRET" dist/ && exit 1 || echo "✅ No CLOUDINARY_API_SECRET in dist/"
+          echo "✅ Frontend bundle is free from server credentials."
+
+  docker-compose-validation:
+    name: 4. Production Compose Specification Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Production Docker Compose Specification (Fail-Closed Check)
+        run: |
+          echo "Verifying fail-closed behavior when secrets are missing..."
+          if docker compose -f docker-compose.prod.yml config > /dev/null 2>&1; then
+            echo "❌ Expected docker-compose.prod.yml to fail when secrets are omitted!"
+            exit 1
+          fi
+          echo "✅ Verified: Missing production secrets fail closed."
+
+      - name: Validate Production Docker Compose Specification with Synthetic Secrets
+        env:
+          JWT_SECRET: synthetic_ci_secret_jwt_32_chars_long_1234
+          SESSION_SECRET: synthetic_ci_secret_session_32_chars_1234
+          COOKIE_SECRET: synthetic_ci_secret_cookie_32_chars_1234
+          INTERNAL_SERVICE_KEY: synthetic_ci_secret_internal_32_chars_123
+        run: |
+          docker compose -f docker-compose.prod.yml config > /dev/null
+          echo "✅ Production Docker Compose configuration syntax is valid."

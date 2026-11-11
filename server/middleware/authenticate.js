@@ -25,7 +25,8 @@ const authenticate = async (req, res, next) => {
     }
 
     // Verify JWT Token Cryptographically
-    const secret = process.env.JWT_SECRET || "guardianlink_super_secret_jwt_key_2026_safe_child_platform";
+    const { getJwtSecret } = require("../config/envValidator");
+    const secret = getJwtSecret();
     const decoded = jwt.verify(token, secret);
 
     // Retrieve active user from MongoDB (Primary Source of Truth)

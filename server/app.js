@@ -23,8 +23,17 @@ const ngoRoutes = require("./routes/ngoRoutes");
 
 // Middleware Imports
 const errorHandler = require("./middleware/errorHandler");
+const { validateProductionEnv, getCookieSecret, isProduction } = require("./config/envValidator");
+
+// Enforce fail-closed validation for production environment
+validateProductionEnv();
 
 const app = express();
+
+// Configure trust proxy for production reverse proxy ingress (HTTPS termination, real client IP)
+if (isProduction()) {
+  app.set("trust proxy", 1);
+}
 
 // Initialize Database, Admin bootstrap & Redis Cache
 const initializeServices = async () => {
@@ -52,17 +61,17 @@ app.use(
       // Allow requests with no origin (like mobile apps, curl, postman)
       if (!origin) return callback(null, true);
       // Return origin string explicitly for credentialed requests
-      if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+      if (allowedOrigins.includes(origin) || !isProduction()) {
         return callback(null, origin);
       }
-      return callback(null, origin);
+      return callback(new Error(`CORS origin not allowed: ${origin}`), false);
     },
     credentials: true
   })
 );
 
-// Cookie Parser Middleware
-app.use(cookieParser(process.env.COOKIE_SECRET || "guardianlink_cookie_secret_key_774411"));
+// Cookie Parser Middleware with secure secret
+app.use(cookieParser(getCookieSecret()));
 
 // Body Parser Middleware
 app.use(express.json());

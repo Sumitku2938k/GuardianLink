@@ -1,0 +1,44 @@
+# ==============================================================================
+# GuardianLink Root — Docker Build Ignore Rules
+# ==============================================================================
+
+# Git metadata
+.git/
+.gitignore
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Node dependencies and build artifacts
+node_modules/
+npm-debug.log
+client/dist/
+coverage/
+.nyc_output/
+
+# Python caches and virtual environments
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+
+# Temporary files and system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.log
+logs/
+temp/
+tmp/
+scratch/
