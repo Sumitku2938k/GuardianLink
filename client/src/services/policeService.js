@@ -383,3 +383,16 @@ export const markNotificationRead = async (notificationId) => {
   const response = await api.patch(`/api/notifications/${notificationId}/read`);
   return response.data?.notification;
 };
+
+/**
+ * Fetch verified police officers roster for squad assignment.
+ */
+export const getStationOfficers = async () => {
+  try {
+    const response = await api.get("/api/cases/police/officers");
+    return response.data?.officers || [];
+  } catch (err) {
+    console.warn("[PoliceService] Could not fetch officers roster:", err.message);
+    return [];
+  }
+};

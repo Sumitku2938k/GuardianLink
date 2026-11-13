@@ -76,6 +76,28 @@ const getDashboardStats = async (ngoUser) => {
   const availableBeds = Math.max(0, totalCapacity - occupiedBeds);
   const occupancyRate = totalCapacity > 0 ? Math.round((occupiedBeds / totalCapacity) * 100) : 0;
 
+  // Empirical calculation of average time in care for completed or active care records
+  const careRecords = await CareRecord.find({ ngoId }).select("receivedAt updatedAt status");
+  let avgTimeInCare = "N/A";
+  if (careRecords.length > 0) {
+    let totalCareMs = 0;
+    let validCareCount = 0;
+    careRecords.forEach((cr) => {
+      if (cr.receivedAt) {
+        const end = cr.status === "handed_over" || cr.status === "closed" ? cr.updatedAt : new Date();
+        const diffMs = new Date(end).getTime() - new Date(cr.receivedAt).getTime();
+        if (diffMs > 0) {
+          totalCareMs += diffMs;
+          validCareCount++;
+        }
+      }
+    });
+    if (validCareCount > 0) {
+      const avgDays = (totalCareMs / (validCareCount * 1000 * 60 * 60 * 24)).toFixed(1);
+      avgTimeInCare = `${avgDays} Days`;
+    }
+  }
+
   return {
     success: true,
     stats: {
@@ -98,7 +120,7 @@ const getDashboardStats = async (ngoUser) => {
       analytics: {
         childrenAssisted: totalAssisted,
         reunificationRate: totalAssisted > 0 ? `${Math.round((completedHandovers / totalAssisted) * 100)}%` : "0%",
-        avgTimeInCare: "3.2 Days",
+        avgTimeInCare,
         medicalCasesCount,
         occupancyRate: `${occupancyRate}%`
       }

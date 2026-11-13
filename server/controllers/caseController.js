@@ -256,7 +256,7 @@ exports.getCases = async (req, res, next) => {
     res.status(200).json({
       success: true,
       count: cases.length,
-      cases: cases.map((c) => c.toSafeObject())
+      cases: cases.map((c) => c.toSafeObject({ role: userRole, userId: req.user._id }))
     });
   } catch (error) {
     next(error);
@@ -344,7 +344,7 @@ exports.getCaseById = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      case: missingCase.toSafeObject()
+      case: missingCase.toSafeObject({ role: userRole, userId: req.user._id })
     });
   } catch (error) {
     next(error);
@@ -600,6 +600,57 @@ exports.getPoliceDashboardStats = async (req, res, next) => {
       }
     });
 
+    // Compute empirical average recovery time from resolved case records
+    const recoveredDocs = await MissingCase.find({
+      ...caseQuery,
+      status: { $in: ["found", "reunited", "closed"] }
+    }).select("missingDate foundAt reunitedAt updatedAt createdAt");
+
+    let avgRecoveryTime = "N/A";
+    if (recoveredDocs.length > 0) {
+      let totalDiffMs = 0;
+      let validCount = 0;
+      recoveredDocs.forEach((doc) => {
+        const start = doc.missingDate || doc.createdAt;
+        const end = doc.foundAt || doc.reunitedAt || doc.updatedAt;
+        if (start && end && new Date(end) > new Date(start)) {
+          totalDiffMs += (new Date(end).getTime() - new Date(start).getTime());
+          validCount++;
+        }
+      });
+      if (validCount > 0) {
+        const avgHours = totalDiffMs / (validCount * 1000 * 60 * 60);
+        if (avgHours < 24) {
+          avgRecoveryTime = `${avgHours.toFixed(1)} hours`;
+        } else {
+          const avgDays = (avgHours / 24).toFixed(1);
+          avgRecoveryTime = `${avgDays} days`;
+        }
+      }
+    }
+
+    // Compute empirical average response time from reviewed sightings
+    const reviewedSightings = await Sighting.find({
+      status: { $in: ["verified", "dismissed"] },
+      reviewedAt: { $ne: null }
+    }).select("createdAt reviewedAt");
+
+    let avgResponseTime = "N/A";
+    if (reviewedSightings.length > 0) {
+      let totalDiffMins = 0;
+      let validSightingCount = 0;
+      reviewedSightings.forEach((s) => {
+        if (s.createdAt && s.reviewedAt && new Date(s.reviewedAt) >= new Date(s.createdAt)) {
+          totalDiffMins += (new Date(s.reviewedAt).getTime() - new Date(s.createdAt).getTime()) / (1000 * 60);
+          validSightingCount++;
+        }
+      });
+      if (validSightingCount > 0) {
+        const avgMins = totalDiffMins / validSightingCount;
+        avgResponseTime = avgMins < 60 ? `${avgMins.toFixed(1)} mins` : `${(avgMins / 60).toFixed(1)} hours`;
+      }
+    }
+
     res.status(200).json({
       success: true,
       stats: {
@@ -610,9 +661,47 @@ exports.getPoliceDashboardStats = async (req, res, next) => {
         foundReports: unreviewedSightings,
         recoveredCases: totalRecovered,
         recoveryRate: `${recoveryRateNum}%`,
-        avgResponseTime: "4.2 mins",
-        avgRecoveryTime: "2.8 hours"
+        avgResponseTime,
+        avgRecoveryTime
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get verified police officers in station / jurisdiction for squad assignment
+// @route   GET /api/cases/police/officers
+// @access  Private (Police, Admin)
+exports.getPoliceOfficers = async (req, res, next) => {
+  try {
+    if (req.user.role === "police" && req.user.status !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "Police account is awaiting administrative approval.",
+        code: "ACCOUNT_VERIFICATION_PENDING"
+      });
+    }
+
+    const query = { role: "police", status: "approved" };
+
+    const officers = await User.find(query)
+      .select("name email phone organization status")
+      .sort({ name: 1 });
+
+    const formatted = officers.map((o) => ({
+      id: o._id.toString(),
+      _id: o._id.toString(),
+      name: o.name,
+      badgeNumber: o.phone ? `DL-POL-${o.phone.slice(-4)}` : "DL-POL-0000",
+      station: o.organization || "District Child Protection Unit",
+      status: "Active Duty"
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: formatted.length,
+      officers: formatted
     });
   } catch (error) {
     next(error);
@@ -745,11 +834,18 @@ exports.assignOfficer = async (req, res, next) => {
       });
     }
 
-    const assignedId = officerId && mongoose.Types.ObjectId.isValid(officerId) ? officerId : req.user._id;
-    const assignedName = (officerName && String(officerName).trim()) || req.user.name;
-    const assignedBadge =
-      (badgeNumber && String(badgeNumber).trim()) ||
-      (req.user.phone ? `DL-POL-${req.user.phone.slice(-4)}` : "DL-POL-0000");
+    let assignedId = req.user._id;
+    let assignedName = req.user.name;
+    let assignedBadge = req.user.phone ? `DL-POL-${req.user.phone.slice(-4)}` : "DL-POL-0000";
+
+    if (officerId && mongoose.Types.ObjectId.isValid(officerId)) {
+      const targetOfficer = await User.findOne({ _id: officerId, role: { $in: ["police", "admin"] } });
+      if (targetOfficer) {
+        assignedId = targetOfficer._id;
+        assignedName = targetOfficer.name;
+        assignedBadge = targetOfficer.phone ? `DL-POL-${targetOfficer.phone.slice(-4)}` : (badgeNumber || "DL-POL-0000");
+      }
+    }
 
     missingCase.assignedOfficer = {
       id: assignedId,

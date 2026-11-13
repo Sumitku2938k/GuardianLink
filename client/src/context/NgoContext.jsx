@@ -19,13 +19,13 @@ export const NgoProvider = ({ children }) => {
 
   // Active NGO Organization Profile derived from session
   const [currentNgo, setCurrentNgo] = useState({
-    name: user?.organization || user?.name || "Helping Hands Child Foundation",
-    registrationNumber: "NGO-DL-2024-9841",
+    name: user?.organization || user?.name || "NGO Organization",
+    registrationNumber: user?.registrationNumber || "",
     verificationStatus: user?.status === "approved" ? "Verified Non-Profit Shelter" : "Verification Pending",
-    address: user?.address || "Community Shelter Kiosk, Sector 12, Delhi",
-    phone: user?.phone || "+91 11 2617 2000",
-    email: user?.email || "contact@helpinghands.org",
-    logo: "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"
+    address: user?.address || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
+    logo: user?.avatar || ""
   });
 
   // State
@@ -34,13 +34,8 @@ export const NgoProvider = ({ children }) => {
     occupied: 0,
     available: 0,
     pendingIntake: 0,
-    staffCount: 12,
-    facilities: [
-      { name: "Emergency Medical Care Room", status: "Operational" },
-      { name: "Child Resting & Sleeping Dormitory", status: "Operational" },
-      { name: "Nutrition & Food Kitchen Kiosk", status: "Operational" },
-      { name: "Child Counseling Room", status: "Active Staffed" }
-    ]
+    staffCount: 0,
+    facilities: []
   });
 
   const [shelters, setShelters] = useState([]);
@@ -52,7 +47,7 @@ export const NgoProvider = ({ children }) => {
   const [ngoAnalytics, setNgoAnalytics] = useState({
     childrenAssisted: 0,
     reunificationRate: "0%",
-    avgTimeInCare: "3.4 Days",
+    avgTimeInCare: "N/A",
     medicalCasesCount: 0,
     occupancyRate: "0%"
   });
@@ -64,13 +59,13 @@ export const NgoProvider = ({ children }) => {
   useEffect(() => {
     if (user && user.role === "ngo") {
       setCurrentNgo({
-        name: user.organization || user.name || "Helping Hands Child Foundation",
-        registrationNumber: "NGO-DL-2024-9841",
+        name: user.organization || user.name || "NGO Organization",
+        registrationNumber: user.registrationNumber || "",
         verificationStatus: user.status === "approved" ? "Verified Non-Profit Shelter" : "Verification Pending",
-        address: user.address || "Community Shelter Kiosk, Sector 12, Delhi",
-        phone: user.phone || "+91 11 2617 2000",
-        email: user.email || "contact@helpinghands.org",
-        logo: "https://images.unsplash.com/photo-1593113598332-cd288d649433?w=150&auto=format&fit=crop&q=80"
+        address: user.address || "",
+        phone: user.phone || "",
+        email: user.email || "",
+        logo: user.avatar || ""
       });
     }
   }, [user]);
@@ -157,28 +152,23 @@ export const NgoProvider = ({ children }) => {
         setNgoAnalytics({
           childrenAssisted: s.analytics?.childrenAssisted || normalizedCare.length,
           reunificationRate: s.analytics?.reunificationRate || "0%",
-          avgTimeInCare: s.analytics?.avgTimeInCare || "3.4 Days",
+          avgTimeInCare: s.analytics?.avgTimeInCare || "N/A",
           medicalCasesCount: s.medicalCasesCount || 0,
           occupancyRate: s.shelterInfo?.occupancyRate || "0%"
         });
 
         const activeShelter = normalizedShelters[0];
         setShelterInfo({
-          totalCapacity: s.shelterInfo?.totalCapacity || (activeShelter?.totalCapacity || 20),
+          totalCapacity: s.shelterInfo?.totalCapacity || (activeShelter?.totalCapacity || 0),
           occupied: s.shelterInfo?.occupied || normalizedCare.filter((c) => c.rawStatus === "in_care").length,
-          available: s.shelterInfo?.available || Math.max(0, (s.shelterInfo?.totalCapacity || 20) - (s.shelterInfo?.occupied || 0)),
+          available: s.shelterInfo?.available || Math.max(0, (s.shelterInfo?.totalCapacity || activeShelter?.totalCapacity || 0) - (s.shelterInfo?.occupied || 0)),
           pendingIntake: s.pendingIntake || 0,
-          staffCount: activeShelter?.staffCount || 12,
-          facilities: activeShelter?.facilities || [
-            { name: "Emergency Medical Care Room", status: "Operational" },
-            { name: "Child Resting & Sleeping Dormitory", status: "Operational" },
-            { name: "Nutrition & Food Kitchen Kiosk", status: "Operational" },
-            { name: "Child Counseling Room", status: "Active Staffed" }
-          ]
+          staffCount: activeShelter?.staffCount || 0,
+          facilities: activeShelter?.facilities || []
         });
       } else {
         // Fallback calculation from normalized entities if stats endpoint fails
-        const totalCap = normalizedShelters.reduce((acc, sh) => acc + (sh.totalCapacity || 0), 0) || 20;
+        const totalCap = normalizedShelters.reduce((acc, sh) => acc + (sh.totalCapacity || 0), 0) || 0;
         const totalOcc = normalizedCare.filter((c) => c.rawStatus === "in_care").length;
         setShelterInfo((prev) => ({
           ...prev,

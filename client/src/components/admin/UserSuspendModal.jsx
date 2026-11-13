@@ -9,16 +9,19 @@ export const UserSuspendModal = ({ isOpen, onClose, user, onConfirmSuspend }) =>
 
   if (!user) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!reason.trim()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      onConfirmSuspend(user.id, reason);
-      setIsSubmitting(false);
+    try {
+      await onConfirmSuspend(user.id, reason);
       onClose();
-    }, 800);
+    } catch (err) {
+      console.error("Failed to suspend user:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

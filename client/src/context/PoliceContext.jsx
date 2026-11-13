@@ -17,65 +17,20 @@ export const PoliceProvider = ({ children }) => {
   const { user } = useAuth();
 
   // Police Station & Active Officer Identity derived from authenticated session
-  const [currentStation, setCurrentStation] = useState("Delhi Central Metro Police Post - Sector 12");
+  const [currentStation, setCurrentStation] = useState(user?.organization || "District Child Protection Unit");
   const [currentOfficer, setCurrentOfficer] = useState({
-    id: "off-101",
-    name: "Insp. Vikram Rathore",
-    rank: "Senior Police Inspector",
-    badgeNumber: "DL-POL-9482",
-    station: "Delhi Central Metro Police Post",
-    shift: "Day Shift (08:00 - 20:00)",
-    status: "Online / Active Duty",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+    id: user?.id || user?._id || "",
+    name: user?.name || "Officer",
+    rank: "Investigating Officer",
+    badgeNumber: user?.phone ? `DL-POL-${user.phone.slice(-4)}` : "DL-POL-0000",
+    station: user?.organization || "District Child Protection Unit",
+    shift: "Active Duty",
+    status: user?.status === "approved" ? "Active Duty" : "Pending Verification",
+    avatar: ""
   });
 
-  // Police Officers Workload Roster
-  const [officers, setOfficers] = useState([
-    {
-      id: "off-101",
-      name: "Insp. Vikram Rathore",
-      rank: "Senior Inspector",
-      badgeNumber: "DL-POL-9482",
-      activeCases: 4,
-      criticalCases: 1,
-      completedCases: 18,
-      availability: "Active Duty",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "off-102",
-      name: "Sub-Insp. M. K. Verma",
-      rank: "Sub-Inspector",
-      badgeNumber: "DL-POL-3321",
-      activeCases: 3,
-      criticalCases: 1,
-      completedCases: 14,
-      availability: "Active Duty",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "off-103",
-      name: "Insp. V. K. Sharma",
-      rank: "Inspector - Crime Branch",
-      badgeNumber: "DL-POL-7720",
-      activeCases: 5,
-      criticalCases: 1,
-      completedCases: 22,
-      availability: "On Patrol",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "off-104",
-      name: "Officer Neha Singh",
-      rank: "Assistant Sub-Inspector",
-      badgeNumber: "DL-POL-4410",
-      activeCases: 2,
-      criticalCases: 0,
-      completedCases: 9,
-      availability: "Desk Duty",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
-    }
-  ]);
+  // Police Officers Workload Roster (populated from verified backend accounts)
+  const [officers, setOfficers] = useState([]);
 
   // Operational datasets backed by real MongoDB endpoints
   const [policeCases, setPoliceCases] = useState([]);
@@ -91,8 +46,8 @@ export const PoliceProvider = ({ children }) => {
     foundReports: 0,
     recoveredCases: 0,
     recoveryRate: "0.0%",
-    avgResponseTime: "4.2 mins",
-    avgRecoveryTime: "2.8 hours"
+    avgResponseTime: "N/A",
+    avgRecoveryTime: "N/A"
   });
   const [policeNotifications, setPoliceNotifications] = useState([]);
 

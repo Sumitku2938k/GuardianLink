@@ -35,16 +35,16 @@ export default function FoundChildReportForm() {
 
   const [caseId, setCaseId] = useState(initialCaseId);
   const [formData, setFormData] = useState({
-    approxAge: candidateFromState?.age ? `${candidateFromState.age} years` : "8 years",
-    approxGender: candidateFromState?.gender || "Male",
+    approxAge: candidateFromState?.age ? `${candidateFromState.age} years` : "",
+    approxGender: candidateFromState?.gender || "",
     condition: "Healthy & Safe",
-    clothing: "Blue T-shirt, navy trousers",
+    clothing: "",
     distinctiveFeatures: "",
-    notes: "Child was sitting near public kiosk unaccompanied.",
-    location: workflowSession.locationName || "Sector 14 Public Library Kiosk",
-    landmark: workflowSession.landmark || "Near Central Metro Exit 3",
-    latitude: workflowSession.latitude || "28.6139",
-    longitude: workflowSession.longitude || "77.2090",
+    notes: "",
+    location: workflowSession.locationName || "",
+    landmark: workflowSession.landmark || "",
+    latitude: workflowSession.latitude || "",
+    longitude: workflowSession.longitude || "",
     observedAt: new Date().toISOString().slice(0, 16) // format for datetime-local
   });
 

@@ -20,161 +20,75 @@ export const AdminProvider = ({ children }) => {
     lastLogin: "Active Now"
   });
 
-  // Default baseline organizations
-  const defaultOrganizations = [
-    {
-      id: "ORG-PL-01",
-      name: "Delhi Central Metro Police Station",
-      type: "Police",
-      location: "Sector 12, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 42,
-      registeredDate: "10 Aug 2024",
-      activeCases: 8,
-      contactPerson: "Insp. R. S. Rathore",
-      phone: "+91 11 2345 6789",
-      email: "metro.central@delhipolice.gov.in"
-    },
-    {
-      id: "ORG-NGO-01",
-      name: "Helping Hands Child Shelter Kiosk",
-      type: "NGO",
-      location: "Sector 12, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 18,
-      registeredDate: "15 Jan 2025",
-      shelterCapacity: 20,
-      currentOccupancy: 8,
-      contactPerson: "Pooja Deshmukh",
-      phone: "+91 98333 44556",
-      email: "shelter@helpinghandsngo.org"
-    },
-    {
-      id: "ORG-NGO-02",
-      name: "Bachpan Safe Haven Foundation",
-      type: "NGO",
-      location: "Sector 18, Noida",
-      verificationStatus: "Pending",
-      status: "Active",
-      membersCount: 12,
-      registeredDate: "14 Feb 2026",
-      shelterCapacity: 35,
-      currentOccupancy: 14,
-      contactPerson: "Suresh Menon",
-      phone: "+91 98777 88990",
-      email: "info@bachpansafe.org"
-    },
-    {
-      id: "ORG-PL-02",
-      name: "Connaught Place Police Post",
-      type: "Police",
-      location: "CP Central, New Delhi",
-      verificationStatus: "Verified",
-      status: "Active",
-      membersCount: 55,
-      registeredDate: "01 Jun 2024",
-      activeCases: 12,
-      contactPerson: "ACP K. L. Sharma",
-      phone: "+91 11 2334 1122",
-      email: "cp.station@delhipolice.gov.in"
-    }
-  ];
-
   // Users Dataset
   const [users, setUsers] = useState([]);
 
-  // Organizations Dataset (Police Posts & NGOs)
-  const [organizations, setOrganizations] = useState(defaultOrganizations);
+  // Organizations Dataset (Police Posts & NGOs derived from approved accounts)
+  const [organizations, setOrganizations] = useState([]);
 
   // Platform Overall Overview Stats
   const [platformStats, setPlatformStats] = useState({
     totalUsers: 0,
-    registeredChildren: 8642,
-    activeMissingCases: 24,
-    activeFoundReports: 18,
-    recoveredChildren: 5284,
-    verifiedOrganizations: 2,
+    registeredChildren: 0,
+    activeMissingCases: 0,
+    activeFoundReports: 0,
+    recoveredChildren: 0,
+    verifiedOrganizations: 0,
     pendingVerifications: 0,
-    systemAlertsCount: 3,
+    systemAlertsCount: 0,
     lastUpdate: "Just now"
   });
 
-  // Base Critical Administrative Alerts
-  const baseAlerts = [
-    {
-      id: "ALT-902",
-      severity: "Critical",
-      title: "High Priority Missing Case Reported",
-      time: "25 mins ago",
-      module: "Cases",
-      action: "Inspect Case",
-      description: "Case #MC-2026-9901 (Ananya Sharma, 6 yrs) assigned to Connaught Place Station."
-    },
-    {
-      id: "ALT-903",
-      severity: "Warning",
-      title: "AI Match Verification Queue Backlog",
-      time: "1 hr ago",
-      module: "AI Monitoring",
-      action: "View Queue",
-      description: "4 potential facial matches awaiting human verification by police escorts."
-    }
-  ];
-
-  const [criticalAlerts, setCriticalAlerts] = useState(baseAlerts);
+  // Critical Administrative Alerts
+  const [criticalAlerts, setCriticalAlerts] = useState([]);
 
   // Real-time Platform Activity Feed
-  const [activityFeed, setActivityFeed] = useState([
-    {
-      id: "ACT-101",
-      actor: "Rajesh Sharma",
-      role: "Parent",
-      action: "Registered child Aadhav (Ref #CH-8802)",
-      time: "5 mins ago",
-      status: "Success"
-    },
-    {
-      id: "ACT-102",
-      actor: "Anjali Gupta",
-      role: "Citizen",
-      action: "Submitted Found Child Report #FR-2026-0044",
-      time: "12 mins ago",
-      status: "Review Needed"
-    },
-    {
-      id: "ACT-103",
-      actor: "Insp. R. S. Rathore",
-      role: "Police",
-      action: "Updated Case #MC-2026-8821 investigation log",
-      time: "30 mins ago",
-      status: "In Progress"
-    },
-    {
-      id: "ACT-104",
-      actor: "Helping Hands Shelter",
-      role: "NGO",
-      action: "Completed safe intake #IN-2026-0412",
-      time: "45 mins ago",
-      status: "Sheltered"
-    },
-    {
-      id: "ACT-105",
-      actor: "GuardianLink AI Engine",
-      role: "System AI",
-      action: "Generated 94.2% facial similarity candidate for Case #MC-8821",
-      time: "1 hr ago",
-      status: "Match Pending"
+  const [activityFeed, setActivityFeed] = useState([]);
+
+  // Platform Cases Oversight Dataset
+  const [adminCases, setAdminCases] = useState([]);
+
+  // Citizen Found Child Reports
+  const [adminReports, setAdminReports] = useState([]);
+
+  // AI Monitoring System Data
+  const [aiMetrics, setAiMetrics] = useState({
+    aiServiceStatus: "Operational",
+    faceDetectionStatus: "Operational",
+    faceMatchingStatus: "Operational",
+    processingQueue: "0 Items",
+    errorRate: "0.0%",
+    avgProcessingTime: "N/A",
+    totalAttemptsToday: 0,
+    potentialMatchesFound: 0,
+    humanVerifiedRate: "N/A",
+    matchQuality: {
+      highSimilarity: 0,
+      mediumSimilarity: 0,
+      lowSimilarity: 0,
+      humanVerified: 0,
+      rejected: 0
     }
-  ]);
+  });
+
+  // AI Incidents Log
+  const [aiIncidents, setAiIncidents] = useState([]);
+
+  // Notifications Log (Platform Level)
+  const [notificationsLog, setNotificationsLog] = useState([]);
 
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
     try {
-      const res = await api.get("/api/admin/users");
-      if (res.data && res.data.success && Array.isArray(res.data.users)) {
-        const mappedUsers = res.data.users.map((u) => {
+      const [usersRes, casesRes, auditRes] = await Promise.allSettled([
+        api.get("/api/admin/users"),
+        api.get("/api/cases"),
+        api.get("/api/admin/audit-logs?limit=20")
+      ]);
+
+      let mappedUsers = [];
+      if (usersRes.status === "fulfilled" && usersRes.value.data?.success && Array.isArray(usersRes.value.data.users)) {
+        mappedUsers = usersRes.value.data.users.map((u) => {
           const roleDisplay =
             u.role === "ngo"
               ? "NGO"
@@ -237,7 +151,7 @@ export const AdminProvider = ({ children }) => {
             const defaultOrgName = isPolice ? `${u.name}'s Police Post` : `${u.name}'s NGO Shelter`;
             const orgName = (u.organization && u.organization.trim()) || defaultOrgName;
             const locParts = [u.city, u.state].filter(Boolean);
-            const location = locParts.length > 0 ? locParts.join(", ") : "New Delhi, Delhi";
+            const location = locParts.length > 0 ? locParts.join(", ") : "Jurisdiction on record";
 
             return {
               id: u.id,
@@ -247,9 +161,9 @@ export const AdminProvider = ({ children }) => {
               location,
               verificationStatus: u.verificationStatus,
               status: u.accountStatus === "Suspended" ? "Suspended" : "Active",
-              membersCount: isPolice ? 28 : 14,
+              membersCount: 1,
               registeredDate: u.registeredDate,
-              shelterCapacity: isPolice ? undefined : 25,
+              shelterCapacity: isPolice ? undefined : 20,
               currentOccupancy: isPolice ? undefined : 0,
               activeCases: isPolice ? 0 : undefined,
               contactPerson: u.name,
@@ -258,21 +172,10 @@ export const AdminProvider = ({ children }) => {
             };
           });
 
-        const liveEmails = new Set(liveOrgs.map((o) => (o.email || "").toLowerCase()));
-        const liveNames = new Set(liveOrgs.map((o) => (o.name || "").toLowerCase()));
-        const preservedDefaults = defaultOrganizations.filter(
-          (d) => !liveEmails.has((d.email || "").toLowerCase()) && !liveNames.has((d.name || "").toLowerCase())
-        );
-
-        setOrganizations([...liveOrgs, ...preservedDefaults]);
+        setOrganizations(liveOrgs);
 
         // Dynamic alerts for pending verifications
         const pendingUsers = mappedUsers.filter((u) => u.verificationStatus === "Pending");
-        const pendingCount = pendingUsers.length;
-        const verifiedOrgs = mappedUsers.filter(
-          (u) => (u.rawRole === "police" || u.rawRole === "ngo") && u.verificationStatus === "Verified"
-        ).length;
-
         const dynamicVerifAlerts = pendingUsers.map((u) => ({
           id: `ALT-PENDING-${u.id}`,
           severity: "High",
@@ -280,21 +183,65 @@ export const AdminProvider = ({ children }) => {
           time: u.registeredDate || "Recent",
           module: "Organizations",
           action: "Review Credentials",
-          description: `${u.name} submitted registration for "${u.organization || u.role}" in ${[u.city, u.state].filter(Boolean).join(", ") || "India"}.`
+          description: `${u.name} submitted registration for "${u.organization || u.role}".`
         }));
 
-        setCriticalAlerts([...dynamicVerifAlerts, ...baseAlerts]);
-
-        setPlatformStats((prev) => ({
-          ...prev,
-          totalUsers: mappedUsers.length,
-          pendingVerifications: pendingCount,
-          verifiedOrganizations: verifiedOrgs,
-          lastUpdate: "Just now"
-        }));
+        setCriticalAlerts(dynamicVerifAlerts);
       }
+
+      let loadedCases = [];
+      if (casesRes.status === "fulfilled" && casesRes.value.data?.cases) {
+        loadedCases = casesRes.value.data.cases.map((c) => ({
+          id: c.caseNumber || c.id || c._id,
+          rawId: c.id || c._id,
+          childReference: c.childName || "Child",
+          priority: c.priority === "high" || c.priority === "High" ? "Critical" : "Normal",
+          status: c.status === "found" || c.status === "reunited" ? "Recovered" : "Investigating",
+          policeStation: c.assignedStation || "Investigating Unit",
+          ngoInvolved: "None",
+          createdDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "Recent",
+          lastUpdated: c.updatedAt ? new Date(c.updatedAt).toLocaleDateString() : "Recent",
+          matchConfidence: "N/A",
+          approxAge: c.approxAge || c.childAge || "N/A",
+          photo: c.childPhoto || ""
+        }));
+        setAdminCases(loadedCases);
+      }
+
+      if (auditRes.status === "fulfilled" && auditRes.value.data?.auditLogs) {
+        const liveLogs = auditRes.value.data.auditLogs;
+        setAuditLogs(liveLogs);
+        const liveActivity = liveLogs.slice(0, 10).map((log) => ({
+          id: log._id || log.id,
+          actor: log.actorName || log.actorRole || "System",
+          role: log.actorRole || "System",
+          action: log.action || "Platform Action",
+          time: log.createdAt ? new Date(log.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+          status: log.outcome || "Success"
+        }));
+        setActivityFeed(liveActivity);
+      }
+
+      const activeCount = loadedCases.filter((c) => c.status !== "Recovered").length;
+      const recoveredCount = loadedCases.filter((c) => c.status === "Recovered").length;
+      const verifiedOrgs = mappedUsers.filter(
+        (u) => (u.rawRole === "police" || u.rawRole === "ngo") && u.verificationStatus === "Verified"
+      ).length;
+      const pendingCount = mappedUsers.filter((u) => u.verificationStatus === "Pending").length;
+
+      setPlatformStats({
+        totalUsers: mappedUsers.length,
+        registeredChildren: loadedCases.length,
+        activeMissingCases: activeCount,
+        activeFoundReports: 0,
+        recoveredChildren: recoveredCount,
+        verifiedOrganizations: verifiedOrgs,
+        pendingVerifications: pendingCount,
+        systemAlertsCount: pendingCount,
+        lastUpdate: "Just now"
+      });
     } catch (err) {
-      console.warn("Could not fetch admin users from backend:", err.message);
+      console.warn("Could not fetch admin datasets from backend:", err.message);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -318,139 +265,6 @@ export const AdminProvider = ({ children }) => {
       fetchUsers();
     }
   }, [authUser]);
-
-  // Platform Cases Oversight Dataset
-  const [adminCases, setAdminCases] = useState([
-    {
-      id: "MC-2026-8821",
-      childReference: "Kabir Mehta",
-      priority: "Critical",
-      status: "Potential Match",
-      policeStation: "Delhi Central Metro Police",
-      ngoInvolved: "Helping Hands Shelter",
-      createdDate: "Today, 08:30 AM",
-      lastUpdated: "15 mins ago",
-      matchConfidence: "94.2%",
-      approxAge: 10,
-      photo: "https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?auto=format&fit=crop&q=80&w=200"
-    },
-    {
-      id: "MC-2026-9901",
-      childReference: "Ananya Sharma",
-      priority: "High",
-      status: "Investigating",
-      policeStation: "Connaught Place Police Post",
-      ngoInvolved: "None",
-      createdDate: "Today, 10:15 AM",
-      lastUpdated: "40 mins ago",
-      matchConfidence: "N/A",
-      approxAge: 6,
-      photo: "https://images.unsplash.com/photo-1502086223501-7ea6ecd79368?auto=format&fit=crop&q=80&w=200"
-    },
-    {
-      id: "MC-2026-7734",
-      childReference: "Aarav Kumar",
-      priority: "Normal",
-      status: "Recovered",
-      policeStation: "Delhi Central Metro Police",
-      ngoInvolved: "Helping Hands Shelter",
-      createdDate: "14 Feb 2026",
-      lastUpdated: "Yesterday",
-      matchConfidence: "98.1%",
-      approxAge: 8,
-      photo: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200"
-    }
-  ]);
-
-  // Citizen Found Child Reports
-  const [adminReports, setAdminReports] = useState([
-    {
-      id: "FR-2026-0044",
-      type: "Found Child Report",
-      submittedBy: "Amit Verma (Citizen)",
-      relatedCase: "MC-2026-8821",
-      location: "Sector 12 Metro Station",
-      status: "Under Review",
-      createdDate: "Today, 09:10 AM",
-      lastUpdated: "12 mins ago"
-    },
-    {
-      id: "FR-2026-0039",
-      type: "Sighting Tip",
-      submittedBy: "Meera Nair (Citizen)",
-      relatedCase: "MC-2026-9901",
-      location: "Rajiv Chowk Gate #2",
-      status: "New",
-      createdDate: "Today, 11:00 AM",
-      lastUpdated: "Today, 11:00 AM"
-    }
-  ]);
-
-  // AI Monitoring System Data
-  const [aiMetrics, setAiMetrics] = useState({
-    aiServiceStatus: "Operational",
-    faceDetectionStatus: "Operational",
-    faceMatchingStatus: "Operational",
-    processingQueue: "2 Items",
-    errorRate: "0.04%",
-    avgProcessingTime: "1.4 seconds",
-    totalAttemptsToday: 482,
-    potentialMatchesFound: 14,
-    humanVerifiedRate: "92.8%",
-    matchQuality: {
-      highSimilarity: 68,
-      mediumSimilarity: 24,
-      lowSimilarity: 8,
-      humanVerified: 86,
-      rejected: 14
-    }
-  });
-
-  // AI Incidents Log
-  const [aiIncidents, setAiIncidents] = useState([
-    {
-      id: "INC-801",
-      title: "Low Lighting Sighting Image Processed",
-      timestamp: "Today, 07:15 AM",
-      severity: "Info",
-      status: "Resolved",
-      details: "Face bounding box confidence 78%. Sent for manual police inspection."
-    }
-  ]);
-
-  // Notifications Log (Platform Level)
-  const [notificationsLog, setNotificationsLog] = useState([
-    {
-      id: "NTF-501",
-      type: "Push Notification",
-      recipientRole: "Police & Parent",
-      relatedCase: "MC-2026-8821",
-      title: "Potential Facial Match Identified",
-      status: "Delivered",
-      sentAt: "Today, 09:12 AM",
-      deliveredAt: "Today, 09:12 AM"
-    },
-    {
-      id: "NTF-502",
-      type: "SMS Alert",
-      recipientRole: "Verified NGO",
-      relatedCase: "IN-2026-0412",
-      title: "Child Shelter Intake Confirmation",
-      status: "Delivered",
-      sentAt: "Today, 08:45 AM",
-      deliveredAt: "Today, 08:46 AM"
-    },
-    {
-      id: "NTF-503",
-      type: "Email Alert",
-      recipientRole: "NGO Admin",
-      relatedCase: "ORG-NGO-02",
-      title: "Licensing Document Request",
-      status: "Failed",
-      sentAt: "Yesterday, 18:00",
-      deliveredAt: "N/A"
-    }
-  ]);
 
   // Audit Logs State (Live fetched via auditLogService)
   const [auditLogs, setAuditLogs] = useState([]);

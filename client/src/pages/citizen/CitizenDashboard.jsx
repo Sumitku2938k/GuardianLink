@@ -145,9 +145,15 @@ export default function CitizenDashboard() {
         </div>
 
         <div className="space-y-3">
-          {foundReports.slice(0, 2).map((report) => (
-            <CitizenReportCard key={report.id} report={report} />
-          ))}
+          {foundReports.length > 0 ? (
+            foundReports.slice(0, 2).map((report) => (
+              <CitizenReportCard key={report.id} report={report} />
+            ))
+          ) : (
+            <div className="p-6 text-center text-xs text-gray-500 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800">
+              No sighting reports filed yet. Use &ldquo;Report Found Child&rdquo; if you observe an unaccompanied minor.
+            </div>
+          )}
         </div>
       </div>
 

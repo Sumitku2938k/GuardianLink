@@ -9,15 +9,17 @@ export const UserRoleModal = ({ isOpen, onClose, user, onConfirmRoleChange }) =>
 
   if (!user) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    setTimeout(() => {
-      onConfirmRoleChange(user.id, selectedRole);
-      setIsSubmitting(false);
+    try {
+      await onConfirmRoleChange(user.id, selectedRole);
       onClose();
-    }, 800);
+    } catch (err) {
+      console.error("Failed to change user role:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

@@ -18,80 +18,10 @@ export const useCitizen = () => {
 
 export const CitizenProvider = ({ children }) => {
 
-  // Existing Found Reports by this Citizen Helper
-  const [foundReports, setFoundReports] = useState([
-    {
-      id: "CR-2026-9041",
-      reportNumber: "CR-2026-9041",
-      date: "2026-08-11 16:30",
-      location: "Sector 14 Public Library Kiosk",
-      landmark: "Near Central Metro Gate 3",
-      latitude: "28.6139",
-      longitude: "77.2090",
-      approxAge: "8 years",
-      approxGender: "Male",
-      clothing: "Blue T-shirt, navy trousers, red backpack",
-      photo: "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=400&auto=format&fit=crop&q=80",
-      status: "Match Found", // Processing, Match Found, Under Review, Resolved
-      safetyState: "Safe in Library Reading Room",
-      contactStatus: "Accepted", // Pending, Accepted, Declined
-      locationSharingActive: true,
-      matchedCaseId: "MC-2026-8821",
-      matchedChildName: "Kabir Mehta",
-      timeline: [
-        { title: "Found Child Report Created", time: "2026-08-11 16:30", desc: "Citizen initiated identification at Library Kiosk." },
-        { title: "AI Potential Match Found", time: "2026-08-11 16:32", desc: "AI engine flagged 94.8% vector similarity with Active Case #MC-2026-8821." },
-        { title: "Guardian Contact Requested", time: "2026-08-11 16:35", desc: "Secure proxy request dispatched to verified parent." },
-        { title: "Guardian Accepted Contact", time: "2026-08-11 16:40", desc: "Guardian John Mehta confirmed child details and initiated handover dispatch." }
-      ]
-    },
-    {
-      id: "CR-2026-3180",
-      reportNumber: "CR-2026-3180",
-      date: "2026-08-10 11:15",
-      location: "Railway Station Gate #2",
-      landmark: "Opposite Ticket Counter B",
-      latitude: "28.6200",
-      longitude: "77.2100",
-      approxAge: "6 years",
-      approxGender: "Female",
-      clothing: "Yellow T-shirt, blue denim shorts",
-      photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
-      status: "Under Review",
-      safetyState: "Safe with Railway Protection Force Post",
-      contactStatus: "Pending",
-      locationSharingActive: false,
-      matchedCaseId: null,
-      matchedChildName: null,
-      timeline: [
-        { title: "Report Submitted", time: "2026-08-10 11:15", desc: "Report filed by citizen helper." },
-        { title: "No Immediate Match Flagged", time: "2026-08-10 11:16", desc: "Database query complete. Queued for police desk review." }
-      ]
-    },
-    {
-      id: "CR-2026-1120",
-      reportNumber: "CR-2026-1120",
-      date: "2026-07-28 14:00",
-      location: "City Central Park Gate #1",
-      landmark: "Ice Cream Parlor",
-      latitude: "28.5355",
-      longitude: "77.3910",
-      approxAge: "5 years",
-      approxGender: "Female",
-      clothing: "Pink floral dress",
-      photo: "https://images.unsplash.com/photo-1519457431-44ccd64a579b?w=400&auto=format&fit=crop&q=80",
-      status: "Resolved",
-      safetyState: "Handed over to family",
-      contactStatus: "Accepted",
-      locationSharingActive: false,
-      matchedCaseId: "MC-2026-1092",
-      matchedChildName: "Ananya Sharma",
-      timeline: [
-        { title: "Report Submitted", time: "2026-07-28 14:00", desc: "Sighting report filed." },
-        { title: "Child Reunited", time: "2026-07-28 15:30", desc: "Parent safely reunited child." }
-      ]
-    }
-  ]);
+  // Existing Found Reports by this Citizen Helper (populated from MongoDB Sighting records)
+  const [foundReports, setFoundReports] = useState([]);
+  const [isLoadingSightings, setIsLoadingSightings] = useState(false);
+  const [sightingsError, setSightingsError] = useState(null);
 
   // Citizen Notifications (persisted from API)
   const [notifications, setNotifications] = useState([]);
@@ -117,10 +47,10 @@ export const CitizenProvider = ({ children }) => {
     childSafeStatus: "Safe", // Safe, Medical, Danger
     photoUrl: null,
     photoFile: null,
-    locationName: "Sector 14 Public Kiosk, Delhi",
-    landmark: "Near Metro Exit 3",
-    latitude: "28.6139",
-    longitude: "77.2090",
+    locationName: "",
+    landmark: "",
+    latitude: "",
+    longitude: "",
     isSearching: false,
     aiResult: null, // null | 'match_found' | 'no_match' | 'error'
     candidates: [],
@@ -144,10 +74,10 @@ export const CitizenProvider = ({ children }) => {
         childSafeStatus: "Safe",
         photoUrl: null,
         photoFile: null,
-        locationName: "Sector 14 Public Kiosk, Delhi",
-        landmark: "Near Metro Exit 3",
-        latitude: "28.6139",
-        longitude: "77.2090",
+        locationName: "",
+        landmark: "",
+        latitude: "",
+        longitude: "",
         isSearching: false,
         aiResult: null,
         candidates: [],
@@ -252,35 +182,25 @@ export const CitizenProvider = ({ children }) => {
     }
   };
 
-  // Request Guardian Contact
+  // Request Official Law Enforcement Verification
   const requestGuardianContact = () => {
     setWorkflowSession((prev) => ({
       ...prev,
       contactRequestSent: true,
-      contactRequestStatus: "Pending"
+      contactRequestStatus: "Pending Police Verification"
     }));
 
-    // Simulate Guardian Acceptance after 3 seconds for interactive demo
-    setTimeout(() => {
-      setWorkflowSession((prev) => ({
-        ...prev,
-        contactRequestStatus: "Accepted",
-        locationSharingActive: true
-      }));
-
-      // Add Notification
-      setNotifications((prev) => [
-        {
-          id: `cn-${Date.now()}`,
-          title: "Guardian Accepted Contact Request",
-          message: "Guardian of Kabir Mehta confirmed the match and accepted proxy contact.",
-          time: "Just Now",
-          isRead: false,
-          type: "success"
-        },
-        ...prev
-      ]);
-    }, 3000);
+    setNotifications((prev) => [
+      {
+        id: `cn-${Date.now()}`,
+        title: "Official Verification Request Dispatched",
+        message: "Potential match lead dispatched to assigned law enforcement officers for official verification.",
+        time: "Just Now",
+        isRead: false,
+        type: "info"
+      },
+      ...prev
+    ]);
   };
 
   // Fetch real sightings and notifications from backend on mount
@@ -290,9 +210,11 @@ export const CitizenProvider = ({ children }) => {
   }, []);
 
   const loadCitizenSightings = async () => {
+    setIsLoadingSightings(true);
+    setSightingsError(null);
     try {
       const realSightings = await getMySightings();
-      if (Array.isArray(realSightings) && realSightings.length > 0) {
+      if (Array.isArray(realSightings)) {
         // Map backend Sighting documents to client report card format
         const formatted = realSightings.map((s) => ({
           id: s._id || s.id,
@@ -308,7 +230,7 @@ export const CitizenProvider = ({ children }) => {
           photo: s.childId?.photoUrl || "",
           status: s.status === "submitted" ? "Under Review" : (s.status === "verified" ? "Match Found" : "Resolved"),
           safetyState: s.safetyState || "Safe",
-          contactStatus: "Pending",
+          contactStatus: "Pending Police Verification",
           locationSharingActive: Boolean(s.location?.latitude && s.location?.longitude),
           matchedCaseId: s.caseId?.caseNumber || (s.caseId?._id ? `MC-${s.caseId._id.slice(-6).toUpperCase()}` : null),
           matchedChildName: s.childId?.fullName || null,
@@ -322,7 +244,12 @@ export const CitizenProvider = ({ children }) => {
         }));
         setFoundReports(formatted);
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn("[CitizenContext] Could not load sightings:", err.message);
+      setSightingsError(err.message || "Failed to load sightings.");
+    } finally {
+      setIsLoadingSightings(false);
+    }
   };
 
   const loadCitizenNotifications = async () => {
@@ -380,7 +307,7 @@ export const CitizenProvider = ({ children }) => {
       photo: reportPayload.photo || "",
       status: "Under Review",
       safetyState: s.safetyState || "Safe",
-      contactStatus: "Pending",
+      contactStatus: "Pending Police Verification",
       locationSharingActive: Boolean(s.location?.latitude && s.location?.longitude),
       matchedCaseId: reportPayload.caseNumber || null,
       matchedChildName: reportPayload.childName || null,
@@ -397,24 +324,27 @@ export const CitizenProvider = ({ children }) => {
     return clientReport;
   };
 
-  // Submit Found Child Report (Fallback Flow)
-  const submitFoundReport = (reportPayload) => {
-    const reportNum = `CR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  // Submit Found Child Report
+  const submitFoundReport = async (reportPayload) => {
+    if (reportPayload.caseId) {
+      return await submitRealSighting(reportPayload);
+    }
+    const reportNum = `SR-${Date.now().toString().slice(-6)}`;
     const newReport = {
       ...reportPayload,
       id: reportNum,
       reportNumber: reportNum,
       date: new Date().toLocaleString(),
       status: "Under Review",
-      contactStatus: "Pending",
-      locationSharingActive: false,
+      contactStatus: "Pending Police Review",
+      locationSharingActive: Boolean(reportPayload.latitude && reportPayload.longitude),
       matchedCaseId: null,
       matchedChildName: null,
       timeline: [
         {
-          title: "Found Child Report Created",
+          title: "Found Child Report Recorded",
           time: "Just Now",
-          desc: "Report registered by citizen helper for police and NGO review."
+          desc: "Report recorded for responder review. Dial 1098 / 112 for urgent response."
         }
       ]
     };
@@ -446,6 +376,8 @@ export const CitizenProvider = ({ children }) => {
     <CitizenContext.Provider
       value={{
         foundReports,
+        isLoadingSightings,
+        sightingsError,
         notifications,
         workflowSession,
         startFoundWorkflow,

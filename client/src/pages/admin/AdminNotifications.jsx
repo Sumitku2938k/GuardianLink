@@ -63,59 +63,67 @@ export default function AdminNotifications() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-150">
-            {notificationsLog.map((n) => (
-              <tr key={n.id} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">
-                  {n.id}
-                </td>
+            {notificationsLog.length > 0 ? (
+              notificationsLog.map((n) => (
+                <tr key={n.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">
+                    {n.id}
+                  </td>
 
-                <td className="py-3.5 px-4">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                    {n.type}
-                  </span>
-                </td>
+                  <td className="py-3.5 px-4">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {n.type}
+                    </span>
+                  </td>
 
-                <td className="py-3.5 px-4 text-slate-800 font-semibold">
-                  {n.recipientRole}
-                </td>
+                  <td className="py-3.5 px-4 text-slate-800 font-semibold">
+                    {n.recipientRole}
+                  </td>
 
-                <td className="py-3.5 px-4 text-slate-900 font-bold">
-                  {n.title}
-                </td>
+                  <td className="py-3.5 px-4 text-slate-900 font-bold">
+                    {n.title}
+                  </td>
 
-                <td className="py-3.5 px-4">
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      n.status === "Delivered"
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-rose-50 text-rose-700 border border-rose-200"
-                    }`}
-                  >
-                    {n.status}
-                  </span>
-                </td>
-
-                <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                  {n.sentAt}
-                </td>
-
-                <td className="py-3.5 px-4 text-right">
-                  {n.status === "Failed" ? (
-                    <Button
-                      onClick={() => handleRetryNotification(n.id)}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-                      leftIcon={RefreshCw}
+                  <td className="py-3.5 px-4">
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                        n.status === "Delivered"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-rose-50 text-rose-700 border border-rose-200"
+                      }`}
                     >
-                      Retry Dispatch
-                    </Button>
-                  ) : (
-                    <span className="text-[10px] text-emerald-700 font-mono font-bold">Confirmed</span>
-                  )}
+                      {n.status}
+                    </span>
+                  </td>
+
+                  <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                    {n.sentAt}
+                  </td>
+
+                  <td className="py-3.5 px-4 text-right">
+                    {n.status === "Failed" ? (
+                      <Button
+                        onClick={() => handleRetryNotification(n.id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                        leftIcon={RefreshCw}
+                      >
+                        Retry Dispatch
+                      </Button>
+                    ) : (
+                      <span className="text-[10px] text-emerald-700 font-mono font-bold">Confirmed</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                  No system notifications dispatched yet.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

@@ -67,6 +67,7 @@ describe("GuardianLink Phase 15: Frontend Production Build & Bundle Security", (
     assert.ok(nginxConf.includes("try_files $uri $uri/ /index.html;"), "Must configure SPA fallback routing");
     assert.ok(nginxConf.includes("X-Content-Type-Options \"nosniff\""), "Must configure nosniff header");
     assert.ok(nginxConf.includes("X-Frame-Options \"SAMEORIGIN\""), "Must configure frame options header");
+    assert.ok(nginxConf.includes("Permissions-Policy \"camera=(self), microphone=(), geolocation=(self)\""), "Must configure origin-scoped camera and geolocation permissions policy");
     assert.ok(nginxConf.includes("location = /healthz"), "Must expose unauthenticated /healthz probe");
   });
 

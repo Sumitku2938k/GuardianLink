@@ -230,12 +230,32 @@ missingCaseSchema.methods.isReportedBy = function (userOrId) {
   return this.reportedBy.toString() === targetId;
 };
 
-// Safe JSON serialization
-missingCaseSchema.methods.toSafeObject = function () {
+// Safe JSON serialization with role-based privacy scoping
+missingCaseSchema.methods.toSafeObject = function (options = {}) {
+  const role = options.role || "";
   const obj = this.toObject({ virtuals: true });
   delete obj.__v;
   obj.id = obj._id.toString();
   obj.caseNumber = this.caseNumber;
+
+  // Privacy Protection: If requester is an NGO or unauthenticated/citizen, scrub private guardian contact details
+  if ((role === "ngo" || role === "citizen") && obj.reportedBy && typeof obj.reportedBy === "object") {
+    const sanitizedReporter = {
+      _id: obj.reportedBy._id,
+      id: obj.reportedBy.id || (obj.reportedBy._id ? obj.reportedBy._id.toString() : ""),
+      name: obj.reportedBy.name || "Verified Guardian",
+      city: obj.reportedBy.city || "",
+      state: obj.reportedBy.state || ""
+    };
+    obj.reportedBy = sanitizedReporter;
+  }
+
+  // Also scrub sensitive child emergency contacts if serialized for NGO general browsing
+  if ((role === "ngo" || role === "citizen") && obj.childId && typeof obj.childId === "object") {
+    if (obj.childId.emergencyContacts) {
+      delete obj.childId.emergencyContacts;
+    }
+  }
 
   if (Array.isArray(obj.investigationNotes)) {
     obj.investigationNotes = obj.investigationNotes.map((n, idx) => {
@@ -307,8 +327,9 @@ missingCaseSchema.methods.toPublicResponse = function (childDoc = null) {
   const child = childDoc || (this.populated("childId") ? this.childId : null);
 
   const loc = this.lastSeenLocation || {};
-  const locationParts = [loc.address, loc.city, loc.state, loc.pinCode].filter(Boolean);
-  const locationString = locationParts.join(", ") || loc.city || "";
+  // Strict Privacy Guard: Exclude street-level residential address and exact PIN code from public views
+  const publicLocationParts = [loc.landmark, loc.city, loc.state].filter(Boolean);
+  const locationString = publicLocationParts.join(", ") || loc.city || "Location on record";
 
   return {
     id: this._id.toString(),

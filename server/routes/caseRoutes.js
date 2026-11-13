@@ -8,6 +8,7 @@ const {
   getCaseById,
   updateCaseStatus,
   getPoliceDashboardStats,
+  getPoliceOfficers,
   updateInvestigationDetails,
   assignOfficer,
   addInvestigationNote,
@@ -19,10 +20,14 @@ const {
 // All case operations require authentication
 router.use(authenticate);
 
-// 1. Police Station Dashboard aggregated analytics (Must precede /:caseId)
+// 1. Police Station Dashboard aggregated analytics & officers roster (Must precede /:caseId)
 router
   .route("/police/dashboard-stats")
   .get(authorize("police", "admin"), getPoliceDashboardStats);
+
+router
+  .route("/police/officers")
+  .get(authorize("police", "admin"), getPoliceOfficers);
 
 // 2. Create a new case (Parent only) & Query cases (Parent, Police, NGO, Admin)
 router

@@ -120,14 +120,20 @@ export default function NgoShelterManagement() {
             Shelter Facilities Status
           </h3>
           <div className="space-y-3 text-xs">
-            {shelterInfo.facilities.map((f, idx) => (
-              <div key={idx} className="p-3 bg-gray-50 dark:bg-slate-955 rounded-xl border border-gray-150 dark:border-slate-800 flex justify-between items-center">
-                <span className="font-bold text-slate-850 dark:text-white">{f.name}</span>
-                <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  {f.status}
-                </span>
+            {Array.isArray(shelterInfo?.facilities) && shelterInfo.facilities.length > 0 ? (
+              shelterInfo.facilities.map((f, idx) => (
+                <div key={idx} className="p-3 bg-gray-50 dark:bg-slate-955 rounded-xl border border-gray-150 dark:border-slate-800 flex justify-between items-center">
+                  <span className="font-bold text-slate-850 dark:text-white">{f.name}</span>
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    {f.status}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="p-4 text-center text-slate-400 text-xs italic bg-gray-50 dark:bg-slate-950 rounded-xl border border-dashed border-gray-200 dark:border-slate-800">
+                No custom facilities configured for this shelter.
               </div>
-            ))}
+            )}
           </div>
         </Card>
 

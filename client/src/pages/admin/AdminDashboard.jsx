@@ -239,27 +239,33 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-3 text-xs">
-              {activityFeed.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3.5 rounded-xl bg-slate-50 border border-gray-150 flex items-center justify-between gap-4 hover:border-indigo-200 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <strong className="text-slate-900 font-bold">{item.actor}</strong>
-                      <span className="text-[10px] font-mono font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
-                        {item.role}
-                      </span>
+              {activityFeed.length > 0 ? (
+                activityFeed.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 rounded-xl bg-slate-50 border border-gray-150 flex items-center justify-between gap-4 hover:border-indigo-200 transition-colors"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-slate-900 font-bold">{item.actor}</strong>
+                        <span className="text-[10px] font-mono font-bold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
+                          {item.role}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 text-[11px]">{item.action}</p>
+                      <span className="text-[10px] text-slate-400 font-mono block">{item.time}</span>
                     </div>
-                    <p className="text-slate-700 text-[11px]">{item.action}</p>
-                    <span className="text-[10px] text-slate-400 font-mono block">{item.time}</span>
-                  </div>
 
-                  <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 shrink-0">
-                    {item.status}
-                  </span>
+                    <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200 shrink-0">
+                      {item.status}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed border-gray-200">
+                  No recent platform activity recorded yet.
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </div>

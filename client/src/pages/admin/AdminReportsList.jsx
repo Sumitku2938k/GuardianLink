@@ -59,49 +59,57 @@ export default function AdminReportsList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-150">
-            {filteredReports.map((r) => (
-              <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
-                <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">
-                  {r.id}
-                </td>
+            {filteredReports.length > 0 ? (
+              filteredReports.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="py-3.5 px-4 font-mono font-bold text-indigo-700">
+                    {r.id}
+                  </td>
 
-                <td className="py-3.5 px-4">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                    {r.type}
-                  </span>
-                </td>
+                  <td className="py-3.5 px-4">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {r.type}
+                    </span>
+                  </td>
 
-                <td className="py-3.5 px-4 text-slate-900 font-semibold">
-                  {r.submittedBy}
-                </td>
+                  <td className="py-3.5 px-4 text-slate-900 font-semibold">
+                    {r.submittedBy}
+                  </td>
 
-                <td className="py-3.5 px-4 font-mono text-teal-700 font-bold">
-                  {r.relatedCase}
-                </td>
+                  <td className="py-3.5 px-4 font-mono text-teal-700 font-bold">
+                    {r.relatedCase}
+                  </td>
 
-                <td className="py-3.5 px-4">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                    {r.status}
-                  </span>
-                </td>
+                  <td className="py-3.5 px-4">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                      {r.status}
+                    </span>
+                  </td>
 
-                <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                  {r.createdDate}
-                </td>
+                  <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                    {r.createdDate}
+                  </td>
 
-                <td className="py-3.5 px-4 text-right">
-                  <Button
-                    onClick={() => alert(`Reviewing Report ${r.id}`)}
-                    variant="primary"
-                    size="sm"
-                    className="text-xs bg-indigo-600 text-white font-bold hover:bg-indigo-700"
-                    leftIcon={Eye}
-                  >
-                    Inspect Report
-                  </Button>
+                  <td className="py-3.5 px-4 text-right">
+                    <Button
+                      onClick={() => alert(`Reviewing Report ${r.id}`)}
+                      variant="primary"
+                      size="sm"
+                      className="text-xs bg-indigo-600 text-white font-bold hover:bg-indigo-700"
+                      leftIcon={Eye}
+                    >
+                      Inspect Report
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-slate-400 italic">
+                  No citizen reports or tips filed yet.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
