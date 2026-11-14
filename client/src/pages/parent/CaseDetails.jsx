@@ -27,7 +27,7 @@ import { useMissingCases } from "@/context/MissingCasesContext";
 import { CaseStatusBadge } from "@/components/missing/CaseStatusBadge";
 import { CasePriorityBadge } from "@/components/missing/CasePriorityBadge";
 import { CaseStatusTracker } from "@/components/missing/CaseStatusTracker";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { PotentialMatchCard } from "@/components/missing/PotentialMatchCard";
 import { CitizenReportCard } from "@/components/missing/CitizenReportCard";
 import { PoliceAssignmentCard } from "@/components/missing/PoliceAssignmentCard";
@@ -412,10 +412,19 @@ export default function CaseDetails() {
                 <div><span className="text-gray-400">Date/Time:</span> <p className="font-semibold text-gray-900 dark:text-white mt-0.5">{caseData.lastSeenDate} ({caseData.lastSeenTime})</p></div>
                 <div><span className="text-gray-400">Landmark:</span> <p className="font-semibold text-gray-900 dark:text-white mt-0.5">{caseData.locationLandmark}</p></div>
               </div>
-              <MapPlaceholder
-                locationName={caseData.lastSeenLocation}
-                latitude={caseData.latitude}
-                longitude={caseData.longitude}
+              <LocationDisplay
+                location={{
+                  latitude: caseData.latitude,
+                  longitude: caseData.longitude,
+                  address: caseData.lastSeenLocation,
+                  city: caseData.rawLocation?.city || "",
+                  state: caseData.rawLocation?.state || "",
+                  accuracy: caseData.accuracy,
+                  source: caseData.source,
+                  type: "child",
+                  title: `${caseData.childName} — Last Seen`
+                }}
+                height="280px"
               />
             </div>
           </Card>

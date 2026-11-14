@@ -1,9 +1,11 @@
 const mongoose = require("mongoose");
 const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
+const Sighting = require("../models/Sighting");
 const Notification = require("../models/Notification");
 const { createNotification } = require("../services/notificationService");
 const auditLogService = require("../services/auditLogService");
+const { validateLocationCoordinates, LocationValidationError } = require("../utils/locationValidator");
 
 /**
  * Valid state machine transitions for MissingCase lifecycle
@@ -138,8 +140,20 @@ exports.createCase = async (req, res, next) => {
       });
     }
 
-    // 5. Parse and normalize location
-    const normalizedLoc = normalizeLocation(lastSeenLocation);
+    // 5. Parse and validate location
+    let normalizedLoc;
+    try {
+      normalizedLoc = validateLocationCoordinates(lastSeenLocation);
+    } catch (locErr) {
+      if (locErr instanceof LocationValidationError || locErr.name === "LocationValidationError") {
+        return res.status(locErr.statusCode || 400).json({
+          success: false,
+          message: locErr.message,
+          code: locErr.code || "INVALID_LOCATION_COORDINATES"
+        });
+      }
+      throw locErr;
+    }
 
     // 6. Generate canonical case tracking number if not supplied
     const year = new Date().getFullYear();
@@ -1279,6 +1293,191 @@ exports.reviewAIMatch = async (req, res, next) => {
       success: true,
       message: `Officer match decision '${decision}' recorded successfully.`,
       case: missingCase.toSafeObject()
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update case last seen location (Coordinates, address, accuracy, source)
+// @route   PATCH /api/cases/:caseId/location
+// @access  Private (Case-owning Parent, Police, Admin)
+exports.updateCaseLocation = async (req, res, next) => {
+  try {
+    const { caseId } = req.params;
+    if (!caseId || !mongoose.Types.ObjectId.isValid(caseId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid Case ID is required.",
+        code: "INVALID_CASE_ID"
+      });
+    }
+
+    const missingCase = await MissingCase.findById(caseId).populate("childId");
+    if (!missingCase) {
+      return res.status(404).json({
+        success: false,
+        message: "Missing case record not found.",
+        code: "CASE_NOT_FOUND"
+      });
+    }
+
+    // Role-based authorization: Parent must own the case, Police/Admin can edit any case
+    if (req.user.role === "parent") {
+      const isReporter = missingCase.reportedBy && missingCase.reportedBy.equals(req.user._id);
+      const isGuardian = missingCase.childId?.guardianId && missingCase.childId.guardianId.equals(req.user._id);
+      if (!isReporter && !isGuardian) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to update the location of this case.",
+          code: "FORBIDDEN"
+        });
+      }
+
+      if (["closed", "cancelled"].includes(missingCase.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot update location for a case that is ${missingCase.status}.`,
+          code: "CASE_TERMINAL_STATE"
+        });
+      }
+    }
+
+    // Validate location data
+    let validatedLoc;
+    try {
+      validatedLoc = validateLocationCoordinates(req.body);
+    } catch (locErr) {
+      if (locErr instanceof LocationValidationError || locErr.name === "LocationValidationError") {
+        return res.status(locErr.statusCode || 400).json({
+          success: false,
+          message: locErr.message,
+          code: locErr.code || "INVALID_LOCATION_COORDINATES"
+        });
+      }
+      throw locErr;
+    }
+
+    // Merge updated location fields
+    const prevLocation = missingCase.lastSeenLocation || {};
+    missingCase.lastSeenLocation = {
+      address: validatedLoc.address !== undefined && validatedLoc.address !== "" ? validatedLoc.address : prevLocation.address || "",
+      landmark: validatedLoc.landmark !== undefined && validatedLoc.landmark !== "" ? validatedLoc.landmark : prevLocation.landmark || "",
+      city: validatedLoc.city !== undefined && validatedLoc.city !== "" ? validatedLoc.city : prevLocation.city || "",
+      state: validatedLoc.state !== undefined && validatedLoc.state !== "" ? validatedLoc.state : prevLocation.state || "",
+      pinCode: validatedLoc.pinCode !== undefined && validatedLoc.pinCode !== "" ? validatedLoc.pinCode : prevLocation.pinCode || "",
+      latitude: validatedLoc.latitude !== undefined ? validatedLoc.latitude : prevLocation.latitude,
+      longitude: validatedLoc.longitude !== undefined ? validatedLoc.longitude : prevLocation.longitude,
+      accuracy: validatedLoc.accuracy !== undefined ? validatedLoc.accuracy : prevLocation.accuracy,
+      source: validatedLoc.source || prevLocation.source || "manual",
+      capturedAt: validatedLoc.capturedAt || prevLocation.capturedAt || new Date()
+    };
+
+    await missingCase.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "CASE_INVESTIGATION_UPDATED",
+      entityType: "MissingCase",
+      entityId: missingCase._id,
+      outcome: "success",
+      metadata: {
+        caseId: missingCase._id.toString(),
+        fieldUpdated: "lastSeenLocation",
+        source: missingCase.lastSeenLocation.source,
+        hasCoordinates: missingCase.lastSeenLocation.latitude !== undefined
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Case last seen location updated successfully.",
+      case: missingCase.toSafeObject({ role: req.user.role, viewerId: req.user._id })
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get complete investigation map data (child last seen + linked sightings)
+// @route   GET /api/cases/:caseId/investigation-map
+// @access  Private (Case-owning Parent, Police, Admin)
+exports.getInvestigationMapData = async (req, res, next) => {
+  try {
+    const { caseId } = req.params;
+    if (!caseId || !mongoose.Types.ObjectId.isValid(caseId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid Case ID is required.",
+        code: "INVALID_CASE_ID"
+      });
+    }
+
+    const missingCase = await MissingCase.findById(caseId).populate("childId");
+    if (!missingCase) {
+      return res.status(404).json({
+        success: false,
+        message: "Missing case record not found.",
+        code: "CASE_NOT_FOUND"
+      });
+    }
+
+    // Role-based authorization: Parent must own the case, Police/Admin allowed
+    if (req.user.role === "parent") {
+      const isReporter = missingCase.reportedBy && missingCase.reportedBy.equals(req.user._id);
+      const isGuardian = missingCase.childId?.guardianId && missingCase.childId.guardianId.equals(req.user._id);
+      if (!isReporter && !isGuardian) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to view investigation map data for this case.",
+          code: "FORBIDDEN"
+        });
+      }
+    }
+
+    // Fetch linked sightings
+    const sightings = await Sighting.find({ caseId: missingCase._id }).lean();
+
+    res.status(200).json({
+      success: true,
+      case: {
+        id: missingCase._id,
+        caseNumber: missingCase.caseNumber || missingCase.policeCaseNumber,
+        childName: missingCase.childId?.fullName || "Child",
+        status: missingCase.status,
+        missingDate: missingCase.missingDate,
+        lastSeenLocation: {
+          address: missingCase.lastSeenLocation?.address || "",
+          landmark: missingCase.lastSeenLocation?.landmark || "",
+          city: missingCase.lastSeenLocation?.city || "",
+          state: missingCase.lastSeenLocation?.state || "",
+          pinCode: missingCase.lastSeenLocation?.pinCode || "",
+          latitude: missingCase.lastSeenLocation?.latitude,
+          longitude: missingCase.lastSeenLocation?.longitude,
+          accuracy: missingCase.lastSeenLocation?.accuracy,
+          source: missingCase.lastSeenLocation?.source || "manual",
+          capturedAt: missingCase.lastSeenLocation?.capturedAt
+        }
+      },
+      sightings: sightings.map((s) => ({
+        id: s._id,
+        sightingDate: s.observedAt || s.createdAt,
+        status: s.status,
+        verified: s.status === "verified",
+        description: s.description || "",
+        location: {
+          address: s.location?.address || "",
+          landmark: s.location?.landmark || "",
+          city: s.location?.city || "",
+          state: s.location?.state || "",
+          pinCode: s.location?.pinCode || "",
+          latitude: s.location?.latitude,
+          longitude: s.location?.longitude,
+          accuracy: s.location?.accuracy,
+          source: s.location?.source || "manual",
+          capturedAt: s.location?.capturedAt
+        }
+      }))
     });
   } catch (error) {
     next(error);

@@ -5,7 +5,7 @@ import { usePolice } from "@/context/PoliceContext";
 import { PoliceCaseTable } from "@/components/police/PoliceCaseTable";
 import { CaseStatusBadge } from "@/components/missing/CaseStatusBadge";
 import { CasePriorityBadge } from "@/components/missing/CasePriorityBadge";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { Button } from "@/components/ui/Button";
 
 export default function PoliceCasesList() {
@@ -181,16 +181,43 @@ export default function PoliceCasesList() {
 
       {viewMode === "map" && (
         <div className="space-y-4">
-          <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-teal-300 font-bold flex items-center justify-between">
-            <span>🗺️ Map View Mode Simulation Active</span>
-            <span className="text-slate-400 font-normal">Displaying {filteredCases.length} pin markers</span>
-          </div>
+          {(() => {
+            const caseMarkers = filteredCases
+              .filter(
+                (c) =>
+                  c.latitude &&
+                  c.longitude &&
+                  Number.isFinite(Number(c.latitude)) &&
+                  Number.isFinite(Number(c.longitude))
+              )
+              .map((c) => ({
+                id: `case-${c.id}`,
+                latitude: Number(c.latitude),
+                longitude: Number(c.longitude),
+                type: "child",
+                title: `${c.childName} (#${c.caseNumber})`,
+                subtitle: `${c.status} • Priority: ${c.priority}`,
+                address: c.lastSeenLocation,
+                date: c.lastSeenDate
+              }));
 
-          <MapPlaceholder
-            locationName="Sector 12 / Sector 18 Police Patrol Zone Map UI"
-            latitude="28.6139"
-            longitude="77.2090"
-          />
+            return (
+              <>
+                <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl text-xs text-teal-300 font-bold flex items-center justify-between">
+                  <span>🗺️ Active Jurisdiction Multi-Case Map</span>
+                  <span className="text-slate-400 font-normal">
+                    {caseMarkers.length} of {filteredCases.length} filtered cases mapped
+                  </span>
+                </div>
+
+                <LocationDisplay
+                  markers={caseMarkers}
+                  height="500px"
+                  isPrivacyRedacted={caseMarkers.length === 0 && filteredCases.length > 0}
+                />
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

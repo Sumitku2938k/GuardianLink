@@ -2,11 +2,29 @@ import React from "react";
 import { BarChart3, TrendingUp, Clock, MapPin, CheckCircle2, Shield } from "lucide-react";
 import { usePolice } from "@/context/PoliceContext";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { Card } from "@/components/ui/Card";
 
 export default function PoliceAnalytics() {
-  const { stationAnalytics } = usePolice();
+  const { stationAnalytics, policeCases } = usePolice();
+
+  const hotspotMarkers = (policeCases || [])
+    .filter(
+      (c) =>
+        c.latitude &&
+        c.longitude &&
+        Number.isFinite(Number(c.latitude)) &&
+        Number.isFinite(Number(c.longitude))
+    )
+    .map((c) => ({
+      id: `case-${c.id}`,
+      latitude: Number(c.latitude),
+      longitude: Number(c.longitude),
+      type: "child",
+      title: `${c.childName} (#${c.caseNumber})`,
+      subtitle: `${c.status}`,
+      address: c.lastSeenLocation
+    }));
 
   return (
     <div className="space-y-6">
@@ -82,16 +100,16 @@ export default function PoliceAnalytics() {
           </div>
         </Card>
 
-        {/* Location Hotspot Map Placeholder */}
+        {/* Location Hotspot Map */}
         <Card className="p-6 bg-slate-900 border-slate-800 text-white space-y-4">
           <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-rose-400" />
-            <span>Missing Case Sighting Hotspots (Sector 12 Zone)</span>
+            <span>Jurisdiction Incident & Sighting Map</span>
           </h3>
-          <MapPlaceholder
-            locationName="Sector 12 & Central Metro Sighting Hotspots"
-            latitude="28.6139"
-            longitude="77.2090"
+          <LocationDisplay
+            markers={hotspotMarkers}
+            height="320px"
+            isPrivacyRedacted={hotspotMarkers.length === 0}
           />
         </Card>
       </div>

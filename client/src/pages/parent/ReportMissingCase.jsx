@@ -22,7 +22,7 @@ import {
 import { useChildren } from "@/context/ChildrenContext";
 import { useMissingCases } from "@/context/MissingCasesContext";
 import { StepIndicator } from "@/components/children/StepIndicator";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationPicker } from "@/components/common/map/LocationPicker";
 import { CasePriorityBadge } from "@/components/missing/CasePriorityBadge";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -66,8 +66,11 @@ export default function ReportMissingCase() {
     landmark: "",
     activity: "",
     companion: "Alone",
-    latitude: "28.6139",
-    longitude: "77.2090"
+    latitude: undefined,
+    longitude: undefined,
+    accuracy: undefined,
+    source: "manual",
+    capturedAt: undefined
   });
 
   // Step 3: Appearance & Circumstances
@@ -178,6 +181,9 @@ export default function ReportMissingCase() {
         locationLandmark: lastSeen.landmark,
         latitude: lastSeen.latitude,
         longitude: lastSeen.longitude,
+        accuracy: lastSeen.accuracy,
+        source: lastSeen.source,
+        capturedAt: lastSeen.capturedAt,
         lastKnownActivity: lastSeen.activity,
         companion: lastSeen.companion,
         clothingTop: appearance.clothingTop,
@@ -365,17 +371,30 @@ export default function ReportMissingCase() {
                   onChange={(e) => setLastSeen({ ...lastSeen, landmark: e.target.value })}
                 />
 
-                {/* Interactive Map UI Placeholder */}
+                {/* Interactive Location Picker */}
                 <div className="pt-2">
-                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 block mb-2">
-                    Exact Location on Map UI
-                  </label>
-                  <MapPlaceholder
-                    locationName={lastSeen.location || "Sector 12 Location Pin"}
-                    latitude={lastSeen.latitude}
-                    longitude={lastSeen.longitude}
-                    onSelectLocation={(loc) => {
-                      setLastSeen({ ...lastSeen, location: loc.name, latitude: loc.lat, longitude: loc.lng });
+                  <LocationPicker
+                    label="Pinpoint Incident Location (Map Selection or GPS)"
+                    initialLocation={
+                      lastSeen.latitude && lastSeen.longitude
+                        ? {
+                            latitude: lastSeen.latitude,
+                            longitude: lastSeen.longitude,
+                            address: lastSeen.location,
+                            accuracy: lastSeen.accuracy,
+                            source: lastSeen.source
+                          }
+                        : null
+                    }
+                    onLocationSelect={(loc) => {
+                      setLastSeen((prev) => ({
+                        ...prev,
+                        latitude: loc.latitude,
+                        longitude: loc.longitude,
+                        accuracy: loc.accuracy,
+                        source: loc.source,
+                        capturedAt: loc.capturedAt
+                      }));
                     }}
                   />
                 </div>

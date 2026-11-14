@@ -94,13 +94,19 @@ export const normalizeCaseForUi = (c) => {
   let landmark = "";
   let lat = "";
   let lng = "";
+  let accuracy = undefined;
+  let source = "manual";
+  let capturedAt = undefined;
   if (typeof c.lastSeenLocation === "object" && c.lastSeenLocation !== null) {
     locStr =
       c.lastSeenLocation.address ||
       [c.lastSeenLocation.city, c.lastSeenLocation.state].filter(Boolean).join(", ");
     landmark = c.lastSeenLocation.pinCode ? `PIN: ${c.lastSeenLocation.pinCode}` : "";
-    lat = c.lastSeenLocation.latitude !== undefined ? String(c.lastSeenLocation.latitude) : "";
-    lng = c.lastSeenLocation.longitude !== undefined ? String(c.lastSeenLocation.longitude) : "";
+    lat = c.lastSeenLocation.latitude !== undefined && c.lastSeenLocation.latitude !== null ? String(c.lastSeenLocation.latitude) : "";
+    lng = c.lastSeenLocation.longitude !== undefined && c.lastSeenLocation.longitude !== null ? String(c.lastSeenLocation.longitude) : "";
+    accuracy = c.lastSeenLocation.accuracy;
+    source = c.lastSeenLocation.source || "manual";
+    capturedAt = c.lastSeenLocation.capturedAt;
   } else if (typeof c.lastSeenLocation === "string") {
     locStr = c.lastSeenLocation;
   }
@@ -127,9 +133,13 @@ export const normalizeCaseForUi = (c) => {
     lastSeenDate: lastSeenDate || "",
     lastSeenTime: lastSeenTime || "",
     lastSeenLocation: locStr,
+    rawLocation: typeof c.lastSeenLocation === "object" ? c.lastSeenLocation : null,
     locationLandmark: landmark || c.locationLandmark || "",
     latitude: lat || c.latitude || "",
     longitude: lng || c.longitude || "",
+    accuracy: accuracy !== undefined ? accuracy : c.accuracy,
+    source: source || c.source || "manual",
+    capturedAt: capturedAt || c.capturedAt,
     circumstances: c.lastSeenDescription || c.circumstances || "",
     lastSeenDescription: c.lastSeenDescription || c.circumstances || "",
     firNumber,
@@ -209,8 +219,15 @@ export const MissingCasesProvider = ({ children }) => {
         missingDate: missingDate.toISOString(),
         lastSeenLocation: {
           address: casePayload.lastSeenLocation || "Unspecified location",
-          latitude: casePayload.latitude ? Number(casePayload.latitude) : undefined,
-          longitude: casePayload.longitude ? Number(casePayload.longitude) : undefined
+          landmark: casePayload.locationLandmark || undefined,
+          city: casePayload.city || undefined,
+          state: casePayload.state || undefined,
+          pinCode: casePayload.pinCode || undefined,
+          latitude: casePayload.latitude !== undefined && casePayload.latitude !== "" ? Number(casePayload.latitude) : undefined,
+          longitude: casePayload.longitude !== undefined && casePayload.longitude !== "" ? Number(casePayload.longitude) : undefined,
+          accuracy: casePayload.accuracy !== undefined ? Number(casePayload.accuracy) : undefined,
+          source: casePayload.source || "manual",
+          capturedAt: casePayload.capturedAt || undefined
         },
         lastSeenDescription: [
           casePayload.circumstances,
@@ -374,6 +391,38 @@ export const MissingCasesProvider = ({ children }) => {
     );
   };
 
+  const updateCaseLocation = async (caseId, locationData) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await api.patch(`/api/cases/${caseId}/location`, locationData);
+      if (response.data && response.data.success) {
+        const updated = normalizeCaseForUi(response.data.case);
+        setMissingCases((prev) =>
+          prev.map((c) => (c.id === caseId || c._id === caseId ? updated : c))
+        );
+        return updated;
+      }
+      return null;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || "Failed to update case location.";
+      setError(errorMsg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getInvestigationMapData = async (caseId) => {
+    try {
+      const response = await api.get(`/api/cases/${caseId}/investigation-map`);
+      return response.data;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || "Failed to fetch investigation map data.";
+      throw new Error(errorMsg);
+    }
+  };
+
   return (
     <MissingCasesContext.Provider
       value={{
@@ -386,6 +435,8 @@ export const MissingCasesProvider = ({ children }) => {
         fetchCases,
         createCase,
         updateCase,
+        updateCaseLocation,
+        getInvestigationMapData,
         updateCaseStatus,
         verifyMatch,
         closeCase,

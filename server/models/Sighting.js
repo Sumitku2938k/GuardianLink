@@ -79,6 +79,19 @@ const sightingSchema = new mongoose.Schema(
         type: Number,
         min: [-180, "Longitude must be between -180 and 180"],
         max: [180, "Longitude must be between -180 and 180"]
+      },
+      accuracy: {
+        type: Number,
+        min: [0, "Accuracy cannot be negative"]
+      },
+      source: {
+        type: String,
+        enum: ["gps", "manual"],
+        default: "manual"
+      },
+      capturedAt: {
+        type: Date,
+        default: Date.now
       }
     },
     description: {
@@ -186,8 +199,10 @@ sightingSchema.index({ createdAt: -1 });
  * or authorized responder. Prevents leakage of internal credentials.
  */
 sightingSchema.methods.toSafeObject = function (options = {}) {
-  const isAuthorizedResponder = options.isAuthorizedResponder || false;
-  const isReporter = options.isReporter || false;
+  const reporterIdStr = this.reportedBy ? (this.reportedBy._id ? this.reportedBy._id.toString() : this.reportedBy.toString()) : "";
+  const viewerUserId = (options.userId || options.viewerId) ? (options.userId || options.viewerId).toString() : "";
+  const isReporter = options.isReporter || Boolean(viewerUserId && reporterIdStr && viewerUserId === reporterIdStr);
+  const isAuthorizedResponder = options.isAuthorizedResponder || options.role === "police" || options.role === "admin";
 
   const obj = this.toObject({ virtuals: true });
   delete obj.__v;
@@ -198,6 +213,11 @@ sightingSchema.methods.toSafeObject = function (options = {}) {
   if (!isAuthorizedResponder && !isReporter && obj.location) {
     delete obj.location.latitude;
     delete obj.location.longitude;
+    delete obj.location.accuracy;
+    delete obj.location.source;
+    delete obj.location.capturedAt;
+    delete obj.location.address;
+    delete obj.location.pinCode;
   }
 
   return obj;

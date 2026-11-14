@@ -16,6 +16,7 @@ const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
 const notificationService = require("./notificationService");
 const { ELIGIBLE_CASE_STATUSES } = require("./citizenPhotoSearchService");
+const { validateLocationCoordinates, LocationValidationError } = require("../utils/locationValidator");
 
 /**
  * Creates and persists a citizen sighting report.
@@ -85,29 +86,14 @@ const submitSighting = async (params) => {
   }
 
   // 5. Geographic coordinates validation (if provided)
-  let parsedLat = undefined;
-  let parsedLng = undefined;
-
-  if (location.latitude !== undefined && location.latitude !== null && location.latitude !== "") {
-    const lat = Number(location.latitude);
-    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-      const error = new Error("Latitude must be a valid number between -90 and 90.");
-      error.status = 400;
-      error.code = "INVALID_COORDINATES";
-      throw error;
-    }
-    parsedLat = lat;
-  }
-
-  if (location.longitude !== undefined && location.longitude !== null && location.longitude !== "") {
-    const lng = Number(location.longitude);
-    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
-      const error = new Error("Longitude must be a valid number between -180 and 180.");
-      error.status = 400;
-      error.code = "INVALID_COORDINATES";
-      throw error;
-    }
-    parsedLng = lng;
+  let validatedLoc;
+  try {
+    validatedLoc = validateLocationCoordinates(location);
+  } catch (locErr) {
+    const error = new Error(locErr.message);
+    error.status = locErr.statusCode || 400;
+    error.code = locErr.code || "INVALID_COORDINATES";
+    throw error;
   }
 
   // 6. Observation timestamp validation
@@ -166,13 +152,16 @@ const submitSighting = async (params) => {
     reportedBy: reportingUser._id, // Strict session derivation
     observedAt: parsedObservedAt,
     location: {
-      address: location.address ? String(location.address).trim().slice(0, 500) : "",
-      city: location.city ? String(location.city).trim().slice(0, 100) : "",
-      state: location.state ? String(location.state).trim().slice(0, 100) : "",
-      landmark: location.landmark ? String(location.landmark).trim().slice(0, 200) : "",
-      pinCode: location.pinCode ? String(location.pinCode).trim().slice(0, 20) : "",
-      latitude: parsedLat,
-      longitude: parsedLng
+      address: validatedLoc.address ? String(validatedLoc.address).trim().slice(0, 500) : "",
+      city: validatedLoc.city ? String(validatedLoc.city).trim().slice(0, 100) : "",
+      state: validatedLoc.state ? String(validatedLoc.state).trim().slice(0, 100) : "",
+      landmark: validatedLoc.landmark ? String(validatedLoc.landmark).trim().slice(0, 200) : "",
+      pinCode: validatedLoc.pinCode ? String(validatedLoc.pinCode).trim().slice(0, 20) : "",
+      latitude: validatedLoc.latitude,
+      longitude: validatedLoc.longitude,
+      accuracy: validatedLoc.accuracy,
+      source: validatedLoc.source || "manual",
+      capturedAt: validatedLoc.capturedAt || new Date()
     },
     description: description.trim(),
     appearance: {

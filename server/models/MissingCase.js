@@ -59,6 +59,19 @@ const missingCaseSchema = new mongoose.Schema(
         type: Number,
         min: [-180, "Longitude must be between -180 and 180"],
         max: [180, "Longitude must be between -180 and 180"]
+      },
+      accuracy: {
+        type: Number,
+        min: [0, "Accuracy cannot be negative"]
+      },
+      source: {
+        type: String,
+        enum: ["gps", "manual", "reported"],
+        default: "manual"
+      },
+      capturedAt: {
+        type: Date,
+        default: Date.now
       }
     },
     lastSeenDescription: {
@@ -274,10 +287,24 @@ missingCaseSchema.methods.toSafeObject = function (options = {}) {
     }
   }
 
-  // Residential Address Privacy: For citizen or NGO, scrub street address and exact pinCode
-  if ((role === "ngo" || role === "citizen") && obj.lastSeenLocation && typeof obj.lastSeenLocation === "object") {
+  // Residential Address & Exact Coordinate Privacy (Phase 17 & Phase 19):
+  // For citizen or NGO, scrub street address, pinCode, and exact GPS coordinates to prevent location tracking
+  const reporterIdStr = obj.reportedBy ? (obj.reportedBy._id ? obj.reportedBy._id.toString() : obj.reportedBy.id || obj.reportedBy.toString()) : "";
+  const viewerUserId = (options.userId || options.viewerId) ? (options.userId || options.viewerId).toString() : "";
+  const isOwner = Boolean(viewerUserId && reporterIdStr && viewerUserId === reporterIdStr);
+  const isPrivileged = role === "police" || role === "admin";
+
+  if ((role === "ngo" || role === "citizen" || (role === "parent" && !isOwner)) && obj.lastSeenLocation && typeof obj.lastSeenLocation === "object") {
     delete obj.lastSeenLocation.address;
     delete obj.lastSeenLocation.pinCode;
+    // Citizens, NGOs, and non-owning parents must not access exact geographic coordinates
+    if (!isPrivileged && !isOwner) {
+      delete obj.lastSeenLocation.latitude;
+      delete obj.lastSeenLocation.longitude;
+      delete obj.lastSeenLocation.accuracy;
+      delete obj.lastSeenLocation.source;
+      delete obj.lastSeenLocation.capturedAt;
+    }
   }
 
   if (Array.isArray(obj.investigationNotes)) {

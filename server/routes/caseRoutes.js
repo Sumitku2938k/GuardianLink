@@ -14,7 +14,9 @@ const {
   addInvestigationNote,
   createTask,
   toggleTask,
-  reviewAIMatch
+  reviewAIMatch,
+  updateCaseLocation,
+  getInvestigationMapData
 } = require("../controllers/caseController");
 
 // All case operations require authentication
@@ -69,7 +71,17 @@ router
   .route("/:caseId/matches/:matchId/review")
   .post(authorize("police", "admin"), reviewAIMatch);
 
-// 9. Fetch specific case details (Parameter match placed after specific subroutes)
+// 9. Case Last Seen Location update (Parent owner, Police, Admin)
+router
+  .route("/:caseId/location")
+  .patch(authorize("parent", "police", "admin"), updateCaseLocation);
+
+// 10. Investigation Map Data (Parent owner, Police, Admin)
+router
+  .route("/:caseId/investigation-map")
+  .get(authorize("parent", "police", "admin"), getInvestigationMapData);
+
+// 11. Fetch specific case details (Parameter match placed after specific subroutes)
 router
   .route("/:caseId")
   .get(authorize("parent", "police", "ngo", "admin"), getCaseById);

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Compass, ShieldCheck, MapPin, CheckCircle2, AlertTriangle, ArrowLeft } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -43,10 +43,15 @@ export default function FoundChildLocationSharing() {
           </Badge>
         </div>
 
-        <MapPlaceholder
-          locationName={workflowSession.locationName}
-          latitude={workflowSession.latitude}
-          longitude={workflowSession.longitude}
+        <LocationDisplay
+          location={{
+            latitude: workflowSession.latitude,
+            longitude: workflowSession.longitude,
+            address: workflowSession.locationName,
+            type: "sighting",
+            title: "Shared Live Sighting Location"
+          }}
+          height="280px"
         />
 
         <div className="p-4 rounded-2xl bg-slate-900 text-white text-xs space-y-2">

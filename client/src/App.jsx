@@ -83,6 +83,7 @@ import { PoliceProvider } from "@/context/PoliceContext";
 import { NgoProvider } from "@/context/NgoContext";
 import { AdminProvider } from "@/context/AdminContext";
 
+import "leaflet/dist/leaflet.css";
 import "@/styles/global.css";
 
 export default function App() {

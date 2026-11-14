@@ -89,6 +89,12 @@ export const normalizePoliceCase = (c) => {
     stageIndex: stageMap[c.status] || 4,
     lastSeenLocation: locationString,
     locationLandmark: loc.landmark || c.locationLandmark || "Near Reported Location",
+    latitude: loc.latitude !== undefined && loc.latitude !== null ? Number(loc.latitude) : (c.latitude !== undefined ? Number(c.latitude) : undefined),
+    longitude: loc.longitude !== undefined && loc.longitude !== null ? Number(loc.longitude) : (c.longitude !== undefined ? Number(c.longitude) : undefined),
+    accuracy: loc.accuracy !== undefined ? loc.accuracy : c.accuracy,
+    source: loc.source || c.source || "manual",
+    capturedAt: loc.capturedAt || c.capturedAt,
+    rawLocation: loc,
     lastSeenDate,
     lastSeenTime,
     createdAt: c.createdAt ? new Date(c.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recent",
@@ -229,6 +235,14 @@ export const getPoliceCaseById = async (caseId) => {
   return {
     case: normalizePoliceCase(rawCase)
   };
+};
+
+/**
+ * Fetch unified investigation map data (child last seen location + all linked sightings)
+ */
+export const getInvestigationMapData = async (caseId) => {
+  const response = await api.get(`/api/cases/${caseId}/investigation-map`);
+  return response.data;
 };
 
 /**

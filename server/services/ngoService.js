@@ -20,6 +20,7 @@ const Child = require("../models/Child");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
 const { createNotification } = require("./notificationService");
+const { validateLocationCoordinates } = require("../utils/locationValidator");
 
 /**
  * Returns persisted dashboard statistics scoped to the authenticated NGO user.
@@ -583,10 +584,30 @@ const createShelter = async (ngoUser, payload) => {
     throw error;
   }
 
+  let shelterAddress = address || {};
+  if (address) {
+    try {
+      const validated = validateLocationCoordinates(address);
+      shelterAddress = {
+        address: validated.address || "",
+        city: validated.city || "",
+        state: validated.state || "",
+        pinCode: validated.pinCode || "",
+        latitude: validated.latitude,
+        longitude: validated.longitude
+      };
+    } catch (locErr) {
+      const error = new Error(locErr.message);
+      error.status = 400;
+      error.code = locErr.code || "INVALID_COORDINATES";
+      throw error;
+    }
+  }
+
   const shelter = new Shelter({
     name: name.trim(),
     ngoId: ngoUser._id,
-    address: address || {},
+    address: shelterAddress,
     capacity: numCapacity,
     activePlacements: 0,
     status: "active",
@@ -634,7 +655,24 @@ const updateShelter = async (ngoUser, shelterId, updatePayload) => {
   }
 
   if (name) shelter.name = name.trim();
-  if (address) shelter.address = address;
+  if (address) {
+    try {
+      const validated = validateLocationCoordinates(address);
+      shelter.address = {
+        address: validated.address || shelter.address?.address || "",
+        city: validated.city || shelter.address?.city || "",
+        state: validated.state || shelter.address?.state || "",
+        pinCode: validated.pinCode || shelter.address?.pinCode || "",
+        latitude: validated.latitude !== undefined ? validated.latitude : shelter.address?.latitude,
+        longitude: validated.longitude !== undefined ? validated.longitude : shelter.address?.longitude
+      };
+    } catch (locErr) {
+      const error = new Error(locErr.message);
+      error.status = 400;
+      error.code = locErr.code || "INVALID_COORDINATES";
+      throw error;
+    }
+  }
   if (status) shelter.status = status;
   if (Array.isArray(facilities)) shelter.facilities = facilities;
   if (staffCount !== undefined) shelter.staffCount = Math.max(0, Number(staffCount));

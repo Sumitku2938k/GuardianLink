@@ -23,7 +23,7 @@ import { usePolice } from "@/context/PoliceContext";
 import { CaseStatusBadge } from "@/components/missing/CaseStatusBadge";
 import { CasePriorityBadge } from "@/components/missing/CasePriorityBadge";
 import { CaseStatusTracker } from "@/components/missing/CaseStatusTracker";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { InvestigationNotesLog } from "@/components/police/InvestigationNotesLog";
 import { AssignmentModal } from "@/components/police/AssignmentModal";
 import { ChildTimeline } from "@/components/children/ChildTimeline";
@@ -40,6 +40,7 @@ import {
   fetchDocumentPreviewBlob,
   downloadFIRDocument
 } from "@/services/firService";
+import { getInvestigationMapData } from "@/services/policeService";
 import { Eye, CheckCircle, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
 
 export default function PoliceCaseDetails() {
@@ -75,6 +76,65 @@ export default function PoliceCaseDetails() {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+
+  // Location & Investigation Map Intelligence (Phase 19)
+  const [mapData, setMapData] = useState(null);
+
+  useEffect(() => {
+    if (caseId) {
+      getInvestigationMapData(caseId)
+        .then((data) => setMapData(data))
+        .catch((err) => console.warn("[PoliceCaseDetails] Map data load error:", err.message));
+    }
+  }, [caseId]);
+
+  const mapMarkers = useMemo(() => {
+    const list = [];
+    if (mapData?.case?.lastSeenLocation?.latitude) {
+      list.push({
+        id: `case-${mapData.case.id}`,
+        latitude: Number(mapData.case.lastSeenLocation.latitude),
+        longitude: Number(mapData.case.lastSeenLocation.longitude),
+        type: "child",
+        title: `${mapData.case.childName || caseData?.childName || "Child"} (Last Seen)`,
+        subtitle: `Case #${mapData.case.caseNumber || caseData?.caseNumber}`,
+        address: mapData.case.lastSeenLocation.address,
+        date: mapData.case.missingDate,
+        accuracy: mapData.case.lastSeenLocation.accuracy
+      });
+    } else if (caseData?.latitude && caseData?.longitude) {
+      list.push({
+        id: `case-${caseData.id}`,
+        latitude: Number(caseData.latitude),
+        longitude: Number(caseData.longitude),
+        type: "child",
+        title: `${caseData.childName} (Last Seen)`,
+        subtitle: `Case #${caseData.caseNumber}`,
+        address: caseData.lastSeenLocation,
+        date: caseData.lastSeenDate,
+        accuracy: caseData.accuracy
+      });
+    }
+
+    if (mapData?.sightings && mapData.sightings.length > 0) {
+      mapData.sightings.forEach((s) => {
+        if (s.location?.latitude && s.location?.longitude) {
+          list.push({
+            id: `sighting-${s.id}`,
+            latitude: Number(s.location.latitude),
+            longitude: Number(s.location.longitude),
+            type: "sighting",
+            title: `Sighting Report (${s.status.toUpperCase()})`,
+            subtitle: s.description || "Citizen Sighting",
+            address: s.location.address,
+            date: s.sightingDate,
+            accuracy: s.location.accuracy
+          });
+        }
+      });
+    }
+    return list;
+  }, [mapData, caseData]);
 
   // FIR Module States (Phase 18)
   const [firRecord, setFirRecord] = useState(null);
@@ -411,10 +471,20 @@ export default function PoliceCaseDetails() {
               <div><span className="text-slate-400">Landmark:</span> <strong className="text-white block mt-0.5">{caseData.locationLandmark}</strong></div>
             </div>
 
-            <MapPlaceholder
-              locationName={caseData.lastSeenLocation}
-              latitude="28.6139"
-              longitude="77.2090"
+            <LocationDisplay
+              markers={mapMarkers}
+              location={
+                mapMarkers.length === 0
+                  ? {
+                      latitude: caseData.latitude,
+                      longitude: caseData.longitude,
+                      address: caseData.lastSeenLocation,
+                      type: "child",
+                      title: `${caseData.childName} (Last Seen)`
+                    }
+                  : null
+              }
+              height="320px"
             />
           </Card>
 

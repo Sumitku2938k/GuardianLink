@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FileText, MapPin, Clock, Compass, ShieldCheck, ArrowLeft, CheckCircle2, AlertCircle } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { ReportStatusBadge } from "@/components/citizen/ReportStatusBadge";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationDisplay } from "@/components/common/map/LocationDisplay";
 import { ChildTimeline } from "@/components/children/ChildTimeline";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -71,10 +71,15 @@ export default function CitizenReportDetails() {
 
             <div className="pt-2">
               <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 block mb-2">Sighting Location Map</h4>
-              <MapPlaceholder
-                locationName={report.location}
-                latitude={report.latitude}
-                longitude={report.longitude}
+              <LocationDisplay
+                location={{
+                  latitude: report.latitude,
+                  longitude: report.longitude,
+                  address: report.location,
+                  type: "sighting",
+                  title: "Citizen Sighting Point"
+                }}
+                height="260px"
               />
             </div>
           </Card>

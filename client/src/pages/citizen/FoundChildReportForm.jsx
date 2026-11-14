@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 import { useCitizen } from "@/context/CitizenContext";
-import { MapPlaceholder } from "@/components/missing/MapPlaceholder";
+import { LocationPicker } from "@/components/common/map/LocationPicker";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -104,6 +104,9 @@ export default function FoundChildReportForm() {
         landmark: formData.landmark,
         latitude: formData.latitude ? Number(formData.latitude) : undefined,
         longitude: formData.longitude ? Number(formData.longitude) : undefined,
+        accuracy: formData.accuracy ? Number(formData.accuracy) : undefined,
+        source: formData.source || "manual",
+        capturedAt: formData.capturedAt || undefined,
         approxAge: formData.approxAge,
         approxGender: formData.approxGender,
         clothing: formData.clothing,
@@ -378,10 +381,29 @@ export default function FoundChildReportForm() {
             />
           </div>
 
-          <MapPlaceholder
-            locationName={formData.location}
-            latitude={formData.latitude}
-            longitude={formData.longitude}
+          <LocationPicker
+            label="Sighting Location Coordinates"
+            initialLocation={
+              formData.latitude && formData.longitude
+                ? {
+                    latitude: formData.latitude,
+                    longitude: formData.longitude,
+                    address: formData.location,
+                    accuracy: formData.accuracy,
+                    source: formData.source
+                  }
+                : null
+            }
+            onLocationSelect={(loc) => {
+              setFormData((prev) => ({
+                ...prev,
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                accuracy: loc.accuracy,
+                source: loc.source,
+                capturedAt: loc.capturedAt
+              }));
+            }}
           />
         </Card>
 
