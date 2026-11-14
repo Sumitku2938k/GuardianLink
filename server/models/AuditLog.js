@@ -76,6 +76,16 @@ const AUDIT_ACTIONS = [
   "HANDOVER_REJECTED",
   "HANDOVER_COMPLETED",
 
+  // FIR Management (Phase 18)
+  "FIR_CREATED",
+  "FIR_DOCUMENT_UPLOADED",
+  "FIR_DOCUMENT_REPLACED",
+  "FIR_DOCUMENT_ACCESSED",
+  "FIR_VERIFIED",
+  "FIR_REJECTED",
+  "FIR_DOCUMENT_DELETION_REQUESTED",
+  "FIR_DOCUMENT_ARCHIVED",
+
   // Security Access Events
   "CASE_VIEWED",
   "CHILD_RECORD_VIEWED",
@@ -122,6 +132,7 @@ const auditLogSchema = new mongoose.Schema(
         "CareRecord",
         "Shelter",
         "Handover",
+        "FIR",
         "AI_SEARCH",
         "System"
       ],

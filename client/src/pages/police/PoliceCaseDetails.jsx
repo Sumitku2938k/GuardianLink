@@ -33,6 +33,15 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 
+import {
+  getCaseFIR,
+  verifyFIR,
+  rejectFIR,
+  fetchDocumentPreviewBlob,
+  downloadFIRDocument
+} from "@/services/firService";
+import { Eye, CheckCircle, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
+
 export default function PoliceCaseDetails() {
   const { caseId } = useParams();
   const navigate = useNavigate();
@@ -66,6 +75,126 @@ export default function PoliceCaseDetails() {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+
+  // FIR Module States (Phase 18)
+  const [firRecord, setFirRecord] = useState(null);
+  const [firLoading, setFirLoading] = useState(true);
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewMimeType, setPreviewMimeType] = useState("application/pdf");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
+  const [verifyNotes, setVerifyNotes] = useState("");
+  const [rejectNotes, setRejectNotes] = useState("");
+  const [rejectReason, setRejectReason] = useState("Illegible Document Scan");
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState(null);
+
+  const fetchFIR = async () => {
+    try {
+      setFirLoading(true);
+      const data = await getCaseFIR(caseId);
+      setFirRecord(data);
+    } catch (err) {
+      console.warn("Could not load FIR for police view:", err);
+    } finally {
+      setFirLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (caseId) {
+      fetchFIR();
+    }
+  }, [caseId]);
+
+  useEffect(() => {
+    return () => {
+      if (previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+      }
+    };
+  }, [previewBlobUrl]);
+
+  const handleOpenPreview = async (version = "latest") => {
+    if (!firRecord) return;
+    try {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      setIsPreviewModalOpen(true);
+      const { objectUrl, mimeType } = await fetchDocumentPreviewBlob(firRecord._id, version);
+      if (previewBlobUrl) {
+        URL.revokeObjectURL(previewBlobUrl);
+      }
+      setPreviewBlobUrl(objectUrl);
+      setPreviewMimeType(mimeType);
+    } catch (err) {
+      setPreviewError(err.response?.data?.message || err.message || "Failed to load document preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadFIR = async (version = "latest") => {
+    if (!firRecord) return;
+    try {
+      const filename = firRecord.activeDocument?.originalFilename || `FIR_${firRecord.firNumber}.pdf`;
+      await downloadFIRDocument(firRecord._id, version, filename);
+    } catch (err) {
+      alert("Failed to download document: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleConfirmVerify = async (e) => {
+    e.preventDefault();
+    if (!verifyNotes.trim() || verifyNotes.trim().length < 5) {
+      setReviewError("Detailed officer review notes (at least 5 characters) are mandatory.");
+      return;
+    }
+    try {
+      setIsReviewSubmitting(true);
+      setReviewError(null);
+      await verifyFIR(firRecord._id, { reviewNotes: verifyNotes.trim() });
+      await fetchFIR();
+      setIsVerifyModalOpen(false);
+      setVerifyNotes("");
+      setActionMessage({ type: "success", text: `FIR ${firRecord.firNumber} officially verified.` });
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || "Failed to verify FIR");
+    } finally {
+      setIsReviewSubmitting(false);
+    }
+  };
+
+  const handleConfirmReject = async (e) => {
+    e.preventDefault();
+    if (!rejectReason.trim() || rejectReason.trim().length < 5) {
+      setReviewError("A specific rejection reason (at least 5 characters) is required.");
+      return;
+    }
+    if (!rejectNotes.trim() || rejectNotes.trim().length < 5) {
+      setReviewError("Officer review notes (at least 5 characters) are mandatory.");
+      return;
+    }
+    try {
+      setIsReviewSubmitting(true);
+      setReviewError(null);
+      await rejectFIR(firRecord._id, {
+        reviewNotes: rejectNotes.trim(),
+        rejectionReason: rejectReason.trim()
+      });
+      await fetchFIR();
+      setIsRejectModalOpen(false);
+      setRejectNotes("");
+      setActionMessage({ type: "success", text: `FIR ${firRecord.firNumber} rejected with review notes sent to guardian.` });
+    } catch (err) {
+      setReviewError(err.response?.data?.message || err.message || "Failed to reject FIR");
+    } finally {
+      setIsReviewSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     if (!caseData && caseId) {
@@ -317,29 +446,124 @@ export default function PoliceCaseDetails() {
             </div>
           </Card>
 
-          {/* Evidence Files Card */}
-          <Card className="p-5 bg-slate-900 border-slate-800 text-white space-y-3">
-            <span className="text-xs font-mono font-bold text-slate-400 uppercase block pb-2 border-b border-slate-800">
-              Evidence & Documents
-            </span>
-
-            <div className="space-y-2 text-xs">
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
-                <div>
-                  <strong className="text-white block">{caseData.firNumber}</strong>
-                  <span className="text-[10px] text-slate-400">Police FIR Document</span>
-                </div>
-                <Button variant="outline" size="sm" className="text-xs">View</Button>
+          {/* Official FIR Verification Dossier Card */}
+          <Card className="p-5 bg-slate-900 border-slate-800 text-white space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-400" />
+                <span className="text-xs font-mono font-bold text-slate-300 uppercase">
+                  Official FIR Verification
+                </span>
               </div>
-
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
-                <div>
-                  <strong className="text-white block">CCTV Feed Segment #12</strong>
-                  <span className="text-[10px] text-slate-400">Exit 4B Video Log</span>
-                </div>
-                <Button variant="outline" size="sm" className="text-xs">View</Button>
-              </div>
+              {firRecord && (
+                firRecord.status === "verified" ? (
+                  <Badge variant="success" size="sm">Verified</Badge>
+                ) : firRecord.status === "rejected" ? (
+                  <Badge variant="danger" size="sm">Rejected</Badge>
+                ) : (
+                  <Badge variant="warning" size="sm">Pending Review</Badge>
+                )
+              )}
             </div>
+
+            {firLoading ? (
+              <p className="text-xs text-slate-400 text-center py-2">Loading FIR status...</p>
+            ) : firRecord ? (
+              <div className="space-y-3 text-xs">
+                <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <strong className="text-white text-sm block font-mono">{firRecord.firNumber}</strong>
+                      <span className="text-[11px] text-slate-400">{firRecord.policeStation}</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-slate-900 text-teal-400 px-2 py-0.5 rounded border border-slate-800">
+                      v{firRecord.activeDocument?.version || 1}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+                    <div>
+                      <span>Filed:</span> <strong className="text-slate-200">{new Date(firRecord.filingDate).toLocaleDateString()}</strong>
+                    </div>
+                    <div>
+                      <span>Complainant:</span> <strong className="text-slate-200">{firRecord.complainantName}</strong>
+                    </div>
+                    <div>
+                      <span>Contact:</span> <strong className="text-slate-200">{firRecord.contactPhone}</strong>
+                    </div>
+                    <div>
+                      <span>Format:</span> <strong className="text-slate-200">{firRecord.activeDocument?.fileExtension?.toUpperCase()} ({(firRecord.activeDocument?.fileSizeBytes / 1024).toFixed(0)} KB)</strong>
+                    </div>
+                  </div>
+
+                  {firRecord.activeDocument?.sha256Checksum && (
+                    <div className="text-[9px] font-mono text-slate-500 truncate pt-1" title={firRecord.activeDocument.sha256Checksum}>
+                      SHA-256: {firRecord.activeDocument.sha256Checksum}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Notice & Review Outcome */}
+                {firRecord.status === "verified" && (
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs space-y-1">
+                    <div className="flex items-center gap-1 font-bold">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Verified by Law Enforcement</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-400">Notes: "{firRecord.latestReviewNotes || 'Verified authentic against police records.'}"</p>
+                  </div>
+                )}
+
+                {firRecord.status === "rejected" && (
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs space-y-1">
+                    <div className="flex items-center gap-1 font-bold">
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Document Rejected</span>
+                    </div>
+                    <p className="text-[11px]"><strong>Reason:</strong> {firRecord.latestRejectionReason}</p>
+                    <p className="text-[11px]"><strong>Notes:</strong> {firRecord.latestReviewNotes}</p>
+                  </div>
+                )}
+
+                {/* Document Action Buttons */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => handleOpenPreview("latest")} className="text-xs flex items-center gap-1 flex-1">
+                    <Eye className="w-3.5 h-3.5" /> Inspect Document
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handleDownloadFIR("latest")} className="text-xs flex items-center gap-1">
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </Button>
+                </div>
+
+                {/* Verification Decision Buttons for Pending FIRs */}
+                {firRecord.status === "pending_review" && (
+                  <div className="pt-2 border-t border-slate-800 space-y-2">
+                    <span className="text-[10px] uppercase font-bold text-amber-400 block">Pending Verification Action:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => { setReviewError(null); setIsVerifyModalOpen(true); }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+                      >
+                        Verify FIR
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => { setReviewError(null); setIsRejectModalOpen(true); }}
+                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs"
+                      >
+                        Reject FIR
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1 text-xs">
+                <span className="text-slate-400 block">No FIR document on record.</span>
+                <span className="text-[10px] text-slate-500 block">The parent has not yet uploaded an official scanned FIR for this case.</span>
+              </div>
+            )}
           </Card>
 
           {/* Case Timeline History */}
@@ -482,6 +706,222 @@ export default function PoliceCaseDetails() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* 1. Police Verify FIR Modal */}
+      <Modal
+        isOpen={isVerifyModalOpen}
+        onClose={() => {
+          if (!isReviewSubmitting) setIsVerifyModalOpen(false);
+        }}
+        title={
+          <div className="flex items-center gap-2 text-emerald-400">
+            <CheckCircle className="w-5 h-5" />
+            <span>Official Police FIR Verification</span>
+          </div>
+        }
+        subtitle={`FIR #${firRecord?.firNumber || ""} • ${firRecord?.policeStation || ""}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleConfirmVerify} className="space-y-4 text-xs">
+          {reviewError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 font-medium">
+              {reviewError}
+            </div>
+          )}
+
+          <p className="text-slate-300 leading-relaxed">
+            You are verifying official FIR <strong>{firRecord?.firNumber}</strong> filed by <strong>{firRecord?.complainantName}</strong>. This confirms that the document matches station records and authenticates the case.
+          </p>
+
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Document Version:</span>
+              <span className="text-white font-mono">v{firRecord?.activeDocument?.version || 1}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">SHA-256 Checksum:</span>
+              <span className="text-teal-400 font-mono text-[9px]">{firRecord?.activeDocument?.sha256Checksum?.slice(0, 16)}...</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-mono text-slate-300 font-bold uppercase block mb-1">
+              Officer Review Notes <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={verifyNotes}
+              onChange={(e) => setVerifyNotes(e.target.value)}
+              placeholder="e.g. Cross-referenced with Station General Diary #402. Document authentic with official seal and signature."
+              className="w-full py-2 px-3 text-xs rounded-xl bg-slate-900 text-white border border-slate-800 focus:border-emerald-500 outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsVerifyModalOpen(false)}
+              isDisabled={isReviewSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={isReviewSubmitting}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+            >
+              Confirm Official Verification
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 2. Police Reject FIR Modal */}
+      <Modal
+        isOpen={isRejectModalOpen}
+        onClose={() => {
+          if (!isReviewSubmitting) setIsRejectModalOpen(false);
+        }}
+        title={
+          <div className="flex items-center gap-2 text-rose-400">
+            <XCircle className="w-5 h-5" />
+            <span>Reject Official FIR Document</span>
+          </div>
+        }
+        subtitle={`FIR #${firRecord?.firNumber || ""} • ${firRecord?.policeStation || ""}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleConfirmReject} className="space-y-4 text-xs">
+          {reviewError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 font-medium">
+              {reviewError}
+            </div>
+          )}
+
+          <p className="text-slate-300 leading-relaxed">
+            Rejecting this document will notify the parent in real time with your rejection reason and review notes, prompting them to upload a corrected copy.
+          </p>
+
+          <div>
+            <label className="text-[11px] font-mono text-slate-300 font-bold uppercase block mb-1">
+              Rejection Reason <span className="text-rose-400">*</span>
+            </label>
+            <select
+              required
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="w-full py-2 px-3 text-xs rounded-xl bg-slate-900 text-white border border-slate-800 focus:border-rose-500 outline-none"
+            >
+              <option value="Illegible Document Scan">Illegible Document Scan</option>
+              <option value="Missing Official Station Seal or Officer Signature">Missing Official Station Seal or Officer Signature</option>
+              <option value="Station / Jurisdiction Mismatch">Station / Jurisdiction Mismatch</option>
+              <option value="Inconsistent Child or Complainant Details">Inconsistent Child or Complainant Details</option>
+              <option value="Document Incomplete or Missing Pages">Document Incomplete or Missing Pages</option>
+              <option value="Other Inconsistency Identified">Other Inconsistency Identified</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[11px] font-mono text-slate-300 font-bold uppercase block mb-1">
+              Officer Review Notes for Guardian <span className="text-rose-400">*</span>
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={rejectNotes}
+              onChange={(e) => setRejectNotes(e.target.value)}
+              placeholder="Explain clearly why this document was rejected so the guardian can obtain and upload the correct copy."
+              className="w-full py-2 px-3 text-xs rounded-xl bg-slate-900 text-white border border-slate-800 focus:border-rose-500 outline-none resize-none"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRejectModalOpen(false)}
+              isDisabled={isReviewSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              isLoading={isReviewSubmitting}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold"
+            >
+              Reject Document & Notify Guardian
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 3. Police Document Inspection Preview Modal */}
+      <Modal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        title={
+          <div className="flex items-center gap-2 text-white">
+            <FileText className="w-5 h-5 text-blue-400" />
+            <span>FIR Document Inspection • {firRecord?.firNumber || ""}</span>
+          </div>
+        }
+        subtitle={`${firRecord?.activeDocument?.originalFilename || "FIR Document"} (v${firRecord?.activeDocument?.version || 1})`}
+        maxWidth="max-w-4xl"
+      >
+        <div className="space-y-4">
+          {previewLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-3">
+              <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+              <p className="text-xs text-slate-400">Loading document stream from private storage...</p>
+            </div>
+          ) : previewError ? (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+              <p className="font-bold">Error Previewing Document</p>
+              <p>{previewError}</p>
+            </div>
+          ) : previewBlobUrl ? (
+            <div className="w-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800">
+              {previewMimeType.includes("pdf") ? (
+                <iframe
+                  src={previewBlobUrl}
+                  title="Police FIR Document Preview"
+                  className="w-full h-[540px] border-0"
+                />
+              ) : (
+                <div className="p-4 flex items-center justify-center min-h-[400px]">
+                  <img
+                    src={previewBlobUrl}
+                    alt="Official FIR Document"
+                    className="max-h-[500px] max-w-full rounded-lg object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400">
+            <span>
+              {firRecord?.activeDocument?.fileSizeBytes
+                ? `${(firRecord.activeDocument.fileSizeBytes / 1024).toFixed(1)} KB • Private Vault Storage`
+                : ""}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleDownloadFIR("latest")}>
+                <Download className="w-3.5 h-3.5 mr-1" /> Download File
+              </Button>
+              <Button size="sm" onClick={() => setIsPreviewModalOpen(false)}>
+                Close Preview
+              </Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -30,6 +30,11 @@ const missingCaseSchema = new mongoose.Schema(
         trim: true,
         default: ""
       },
+      landmark: {
+        type: String,
+        trim: true,
+        default: ""
+      },
       city: {
         type: String,
         trim: true,
@@ -97,6 +102,18 @@ const missingCaseSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: ""
+    },
+    firId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FIR",
+      default: null,
+      index: true
+    },
+    firStatus: {
+      type: String,
+      enum: ["not_filed", "pending_review", "verified", "rejected"],
+      default: "not_filed",
+      index: true
     },
     firDocumentUrl: {
       type: String,
@@ -255,6 +272,12 @@ missingCaseSchema.methods.toSafeObject = function (options = {}) {
     if (obj.childId.emergencyContacts) {
       delete obj.childId.emergencyContacts;
     }
+  }
+
+  // Residential Address Privacy: For citizen or NGO, scrub street address and exact pinCode
+  if ((role === "ngo" || role === "citizen") && obj.lastSeenLocation && typeof obj.lastSeenLocation === "object") {
+    delete obj.lastSeenLocation.address;
+    delete obj.lastSeenLocation.pinCode;
   }
 
   if (Array.isArray(obj.investigationNotes)) {

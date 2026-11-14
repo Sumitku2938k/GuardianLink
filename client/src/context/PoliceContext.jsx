@@ -124,27 +124,6 @@ export const PoliceProvider = ({ children }) => {
 
       setInvestigationNotes(notesMap);
       setInvestigationTasks(tasksMap);
-
-      // If no AI match reviews exist yet in database, provide candidate leads connected to real active cases
-      if (matchesList.length === 0 && loadedCases.length > 0) {
-        const activeCandidates = loadedCases.filter((c) => c.status !== "Closed" && c.status !== "Cancelled");
-        activeCandidates.slice(0, 3).forEach((activeC, index) => {
-          matchesList.push({
-            id: `pm-ai-${activeC.id.slice(-4)}-${index + 1}`,
-            caseId: activeC.id,
-            caseNumber: activeC.caseNumber,
-            childId: activeC.childId,
-            childName: activeC.childName,
-            matchPhoto: activeC.childPhoto,
-            confidenceScore: index === 0 ? "94.8%" : index === 1 ? "89.5%" : "81.2%",
-            matchDate: "Recent Feed",
-            location: `${activeC.lastSeenLocation} CCTV Camera #${10 + index}`,
-            verificationStatus: "Awaiting Verification",
-            isVerified: false,
-            notes: "AI facial vector match flagged on public CCTV feed. Human verification required before confirming."
-          });
-        });
-      }
       setPotentialMatches(matchesList);
 
       if (sightingsRes.status === "fulfilled") {

@@ -16,6 +16,7 @@ export default function PoliceCasesList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [priorityFilter, setPriorityFilter] = useState("All");
+  const [firFilter, setFirFilter] = useState("All");
 
   const filteredCases = policeCases.filter((c) => {
     const caseNumber = c?.caseNumber || "";
@@ -23,6 +24,7 @@ export default function PoliceCasesList() {
     const lastSeenLocation = c?.lastSeenLocation || "";
     const status = c?.status || "";
     const priority = c?.priority || "";
+    const firStatus = c?.firStatus || (c?.firAvailable ? "verified" : "not_filed");
 
     const matchesSearch =
       caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -31,8 +33,13 @@ export default function PoliceCasesList() {
 
     const matchesStatus = statusFilter === "All" || status.toLowerCase() === statusFilter.toLowerCase();
     const matchesPriority = priorityFilter === "All" || priority.toLowerCase() === priorityFilter.toLowerCase();
+    const matchesFIR =
+      firFilter === "All" ||
+      (firFilter === "verified" && (firStatus === "verified" || c?.firAvailable)) ||
+      (firFilter === "pending_review" && firStatus === "pending_review") ||
+      (firFilter === "not_filed" && (firStatus === "not_filed" || !c?.firAvailable));
 
-    return matchesSearch && matchesStatus && matchesPriority;
+    return matchesSearch && matchesStatus && matchesPriority && matchesFIR;
   });
 
   return (
@@ -114,6 +121,17 @@ export default function PoliceCasesList() {
             <option value="Critical">Critical</option>
             <option value="High">High</option>
             <option value="Medium">Medium</option>
+          </select>
+
+          <select
+            value={firFilter}
+            onChange={(e) => setFirFilter(e.target.value)}
+            className="bg-slate-950 text-white border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold outline-none"
+          >
+            <option value="All">All FIR Statuses</option>
+            <option value="verified">Verified FIR</option>
+            <option value="pending_review">Pending FIR Review</option>
+            <option value="not_filed">No FIR</option>
           </select>
         </div>
       </div>

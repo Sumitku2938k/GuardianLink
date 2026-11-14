@@ -33,7 +33,11 @@ const notificationSchema = new mongoose.Schema(
           "handover_requested",
           "handover_approved",
           "handover_completed",
-          "handover_rejected"
+          "handover_rejected",
+          "fir_submitted",
+          "fir_verified",
+          "fir_rejected",
+          "fir_resubmitted"
         ],
         message: "Invalid notification type"
       },
@@ -77,6 +81,15 @@ const notificationSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: "Handover",
         default: null
+      },
+      firId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "FIR",
+        default: null
+      },
+      firNumber: {
+        type: String,
+        default: ""
       },
       shelterId: {
         type: mongoose.Schema.Types.ObjectId,
