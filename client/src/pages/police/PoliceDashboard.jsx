@@ -43,7 +43,18 @@ export default function PoliceDashboard() {
   const safeAnalytics = stationAnalytics || {};
   const safeOfficer = currentOfficer || {};
 
-  const criticalCases = safePoliceCases.filter((c) => c?.priority === "Critical" && c?.status !== "Closed");
+  const criticalCases = safePoliceCases.filter((c) => (c?.priority || "").toLowerCase() === "critical" && c?.status !== "Closed");
+
+  const totalCount = safePoliceCases.length || 1;
+  const criticalCount = safePoliceCases.filter((c) => (c?.priority || "").toLowerCase() === "critical").length;
+  const highCount = safePoliceCases.filter((c) => (c?.priority || "").toLowerCase() === "high").length;
+  const mediumCount = safePoliceCases.filter((c) => (c?.priority || "").toLowerCase() === "medium").length;
+  const lowCount = safePoliceCases.filter((c) => (c?.priority || "").toLowerCase() === "low").length;
+
+  const criticalPct = Math.round((criticalCount / totalCount) * 100);
+  const highPct = Math.round((highCount / totalCount) * 100);
+  const mediumPct = Math.round((mediumCount / totalCount) * 100);
+  const lowPct = Math.round((lowCount / totalCount) * 100);
 
   const filteredCases = safePoliceCases.filter((c) => {
     const caseNumber = c?.caseNumber || "";
@@ -168,30 +179,30 @@ export default function PoliceDashboard() {
             <div>
               <div className="flex justify-between font-semibold mb-1">
                 <span className="text-rose-400">Critical Priority</span>
-                <span>{safePoliceCases.filter((c) => c?.priority === "Critical").length} cases</span>
+                <span>{criticalCount} cases ({criticalPct}%)</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                <div className="h-full bg-red-600 rounded-full" style={{ width: "35%" }} />
+                <div className="h-full bg-red-600 rounded-full transition-all duration-300" style={{ width: `${criticalPct}%` }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between font-semibold mb-1">
-                <span className="text-rose-400">High Priority</span>
-                <span>{safePoliceCases.filter((c) => c?.priority === "High").length} cases</span>
+                <span className="text-orange-400">High Priority</span>
+                <span>{highCount} cases ({highPct}%)</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                <div className="h-full bg-rose-500 rounded-full" style={{ width: "45%" }} />
+                <div className="h-full bg-orange-500 rounded-full transition-all duration-300" style={{ width: `${highPct}%` }} />
               </div>
             </div>
 
             <div>
               <div className="flex justify-between font-semibold mb-1">
-                <span className="text-amber-400">Medium Priority</span>
-                <span>{safePoliceCases.filter((c) => c?.priority === "Medium").length} cases</span>
+                <span className="text-amber-400">Medium / Standard Priority</span>
+                <span>{mediumCount + lowCount} cases ({mediumPct + lowPct}%)</span>
               </div>
               <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-500 rounded-full" style={{ width: "20%" }} />
+                <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${mediumPct + lowPct}%` }} />
               </div>
             </div>
           </div>
@@ -206,12 +217,22 @@ export default function PoliceDashboard() {
           <div className="grid grid-cols-2 gap-3 text-xs pt-1">
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
               <span className="text-slate-400 block text-[10px] uppercase">Recovery Rate</span>
-              <strong className="text-teal-300 text-xl font-black block mt-0.5">{safeAnalytics.recoveryRate || "0%"}</strong>
+              <strong className="text-teal-300 text-xl font-black block mt-0.5">{safeAnalytics.recoveryRate || "0.0%"}</strong>
             </div>
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <span className="text-slate-400 block text-[10px] uppercase">Avg Response Time</span>
-              <strong className="text-blue-400 text-xl font-black block mt-0.5">{safeAnalytics.avgResponseTime || "--"}</strong>
+              <span className="text-slate-400 block text-[10px] uppercase">Pending FIR Reviews</span>
+              <strong className="text-amber-400 text-xl font-black block mt-0.5">{safeAnalytics.pendingFIRReviews ?? 0}</strong>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-slate-400 block text-[10px] uppercase">Unassigned Cases</span>
+              <strong className="text-rose-400 text-xl font-black block mt-0.5">{safeAnalytics.unassignedCases ?? 0}</strong>
+            </div>
+
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <span className="text-slate-400 block text-[10px] uppercase">Verified Sightings</span>
+              <strong className="text-blue-400 text-xl font-black block mt-0.5">{safeAnalytics.verifiedSightings ?? 0}</strong>
             </div>
           </div>
         </Card>

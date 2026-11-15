@@ -79,15 +79,20 @@ export const PoliceProvider = ({ children }) => {
     setError(null);
 
     try {
-      const [casesRes, statsRes, sightingsRes, notifsRes] = await Promise.allSettled([
+      const [casesRes, statsRes, sightingsRes, notifsRes, officersRes] = await Promise.allSettled([
         policeService.getPoliceCases(),
         policeService.getPoliceDashboardStats(),
         policeService.getPoliceSightings(),
-        policeService.getPoliceNotifications()
+        policeService.getPoliceNotifications(),
+        policeService.getStationOfficers()
       ]);
 
       const loadedCases = casesRes.status === "fulfilled" ? casesRes.value.cases : [];
       setPoliceCases(loadedCases);
+
+      if (officersRes.status === "fulfilled" && officersRes.value) {
+        setOfficers(officersRes.value.officers || []);
+      }
 
       // Hydrate notes, tasks, and potential AI match leads from authoritative case records
       const notesMap = {};
@@ -111,7 +116,11 @@ export const PoliceProvider = ({ children }) => {
               childId: c.childId,
               childName: c.childName,
               matchPhoto: c.childPhoto,
-              confidenceScore: "92.4%",
+              confidenceScore: pm.confidenceScore
+                ? `${(Number(pm.confidenceScore) * (Number(pm.confidenceScore) <= 1 ? 100 : 1)).toFixed(1)}%`
+                : pm.similarity
+                ? `${(Number(pm.similarity) * (Number(pm.similarity) <= 1 ? 100 : 1)).toFixed(1)}%`
+                : "Pending Review",
               matchDate: pm.reviewedAt ? new Date(pm.reviewedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : "Recent",
               location: c.lastSeenLocation || "Surveillance Lead",
               verificationStatus: pm.verificationStatus || "Awaiting Verification",
@@ -192,11 +201,8 @@ export const PoliceProvider = ({ children }) => {
   // Assign or Reassign Officer to Case
   const assignOfficer = async (caseId, officerId) => {
     try {
-      const targetOfficer = officers.find((o) => o.id === officerId) || currentOfficer;
       const res = await policeService.assignOfficer(caseId, {
-        officerId: targetOfficer.id,
-        officerName: targetOfficer.name,
-        badgeNumber: targetOfficer.badgeNumber
+        officerId
       });
 
       const updatedCase = res.case;
@@ -211,6 +217,12 @@ export const PoliceProvider = ({ children }) => {
           [updatedCase.caseNumber]: updatedCase.investigationNotes
         }));
       }
+
+      // Re-fetch officers roster non-blockingly to update live workload counters
+      policeService.getStationOfficers().then((offRes) => {
+        if (offRes?.officers) setOfficers(offRes.officers);
+      }).catch((e) => console.warn("[PoliceContext] Workload refresh warning:", e.message));
+
       return updatedCase;
     } catch (err) {
       console.error("[PoliceContext] assignOfficer error:", err);

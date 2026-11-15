@@ -3,7 +3,9 @@ const MissingCase = require("../models/MissingCase");
 const Child = require("../models/Child");
 const Sighting = require("../models/Sighting");
 const Notification = require("../models/Notification");
-const { createNotification } = require("../services/notificationService");
+const User = require("../models/User");
+const FIR = require("../models/FIR");
+const notificationService = require("../services/notificationService");
 const auditLogService = require("../services/auditLogService");
 const { validateLocationCoordinates, LocationValidationError } = require("../utils/locationValidator");
 
@@ -512,7 +514,7 @@ exports.updateCaseStatus = async (req, res, next) => {
     try {
       const guardianId = missingCase.childId?.guardianId || missingCase.reportedBy;
       if (guardianId && guardianId.toString() !== req.user._id.toString()) {
-        createNotification({
+        notificationService.createNotification({
           recipientId: guardianId,
           senderId: req.user._id,
           recipientRole: "parent",
@@ -573,6 +575,10 @@ exports.getPoliceDashboardStats = async (req, res, next) => {
 
     const caseQuery = { status: { $in: ["reported", "under_verification", "active", "found", "reunited", "closed"] } };
 
+    if (req.query.city) {
+      caseQuery["lastSeenLocation.city"] = new RegExp(req.query.city.trim(), "i");
+    }
+
     const totalMissing = await MissingCase.countDocuments(caseQuery);
     const activeCases = await MissingCase.countDocuments({
       ...caseQuery,
@@ -592,9 +598,26 @@ exports.getPoliceDashboardStats = async (req, res, next) => {
       status: "closed"
     });
 
-    const Sighting = require("../models/Sighting");
+    const unassignedCases = await MissingCase.countDocuments({
+      ...caseQuery,
+      status: { $in: ["reported", "under_verification", "active"] },
+      $or: [
+        { assignedOfficer: { $exists: false } },
+        { "assignedOfficer.id": null },
+        { "assignedOfficer.id": { $exists: false } }
+      ]
+    });
+
     const unreviewedSightings = await Sighting.countDocuments({
       status: { $in: ["submitted", "under_review"] }
+    });
+
+    const verifiedSightings = await Sighting.countDocuments({
+      status: "verified"
+    });
+
+    const pendingFIRReviews = await FIR.countDocuments({
+      status: "pending_review"
     });
 
     const totalRecovered = foundCases + closedCases;
@@ -671,8 +694,11 @@ exports.getPoliceDashboardStats = async (req, res, next) => {
         totalMissing,
         activeCases,
         criticalCases,
+        unassignedCases,
+        pendingFIRReviews,
         potentialMatches: potentialMatchesCount,
         foundReports: unreviewedSightings,
+        verifiedSightings,
         recoveredCases: totalRecovered,
         recoveryRate: `${recoveryRateNum}%`,
         avgResponseTime,
@@ -697,20 +723,89 @@ exports.getPoliceOfficers = async (req, res, next) => {
       });
     }
 
-    const query = { role: "police", status: "approved" };
+    const query = { role: "police", status: "approved", isActive: { $ne: false } };
+
+    // Station scoping: if police user has organization or station, scope to their station
+    const station = req.user.organization || req.user.station;
+    if (req.user.role === "police" && station) {
+      query.organization = station;
+    } else if (req.query.station) {
+      query.organization = req.query.station;
+    }
 
     const officers = await User.find(query)
-      .select("name email phone organization status")
+      .select("name email phone organization status isActive profilePhoto")
       .sort({ name: 1 });
 
-    const formatted = officers.map((o) => ({
-      id: o._id.toString(),
-      _id: o._id.toString(),
-      name: o.name,
-      badgeNumber: o.phone ? `DL-POL-${o.phone.slice(-4)}` : "DL-POL-0000",
-      station: o.organization || "District Child Protection Unit",
-      status: "Active Duty"
-    }));
+    const officerIds = officers.map((o) => o._id);
+
+    // Aggregate real workload per officer from MissingCase collection
+    const workloadAgg = officerIds.length > 0 ? await MissingCase.aggregate([
+      {
+        $match: {
+          "assignedOfficer.id": { $in: officerIds }
+        }
+      },
+      {
+        $group: {
+          _id: "$assignedOfficer.id",
+          activeCases: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["reported", "under_verification", "active"]] }, 1, 0]
+            }
+          },
+          criticalCases: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ["$status", ["reported", "under_verification", "active"]] },
+                    { $eq: ["$priority", "critical"] }
+                  ]
+                },
+                1,
+                0
+              ]
+            }
+          },
+          completedCases: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["found", "reunited", "closed"]] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]) : [];
+
+    const workloadMap = {};
+    workloadAgg.forEach((w) => {
+      if (w._id) {
+        workloadMap[w._id.toString()] = {
+          activeCases: w.activeCases || 0,
+          criticalCases: w.criticalCases || 0,
+          completedCases: w.completedCases || 0
+        };
+      }
+    });
+
+    const formatted = officers.map((o) => {
+      const w = workloadMap[o._id.toString()] || { activeCases: 0, criticalCases: 0, completedCases: 0 };
+      const badge = o.phone ? `DL-POL-${o.phone.slice(-4)}` : "DL-POL-0000";
+      return {
+        id: o._id.toString(),
+        _id: o._id.toString(),
+        name: o.name,
+        badgeNumber: badge,
+        rank: "Officer",
+        station: o.organization || "District Child Protection Unit",
+        status: o.isActive !== false ? "Active Duty" : "Inactive",
+        availability: o.isActive !== false ? "Active Duty" : "Unavailable",
+        activeCases: w.activeCases,
+        criticalCases: w.criticalCases,
+        completedCases: w.completedCases,
+        avatar: o.profilePhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(o.name)}&background=1e293b&color=60a5fa`
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -823,13 +918,21 @@ exports.updateInvestigationDetails = async (req, res, next) => {
 exports.assignOfficer = async (req, res, next) => {
   try {
     const { caseId } = req.params;
-    const { officerId, officerName, badgeNumber } = req.body || {};
+    const { officerId } = req.body || {};
 
     if (req.user.role === "police" && req.user.status !== "approved") {
       return res.status(403).json({
         success: false,
         message: "Police account is awaiting administrative approval.",
         code: "ACCOUNT_VERIFICATION_PENDING"
+      });
+    }
+
+    if (!officerId || !mongoose.Types.ObjectId.isValid(officerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid Officer ID is required for case assignment.",
+        code: "INVALID_OFFICER_ID"
       });
     }
 
@@ -848,25 +951,65 @@ exports.assignOfficer = async (req, res, next) => {
       });
     }
 
-    let assignedId = req.user._id;
-    let assignedName = req.user.name;
-    let assignedBadge = req.user.phone ? `DL-POL-${req.user.phone.slice(-4)}` : "DL-POL-0000";
-
-    if (officerId && mongoose.Types.ObjectId.isValid(officerId)) {
-      const targetOfficer = await User.findOne({ _id: officerId, role: { $in: ["police", "admin"] } });
-      if (targetOfficer) {
-        assignedId = targetOfficer._id;
-        assignedName = targetOfficer.name;
-        assignedBadge = targetOfficer.phone ? `DL-POL-${targetOfficer.phone.slice(-4)}` : (badgeNumber || "DL-POL-0000");
-      }
+    // Verify case eligibility (cannot assign closed or cancelled cases)
+    if (["closed", "cancelled"].includes(missingCase.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot assign officer to a ${missingCase.status} case.`,
+        code: "CASE_NOT_ELIGIBLE"
+      });
     }
 
+    const targetOfficer = await User.findById(officerId);
+    if (!targetOfficer || targetOfficer.role !== "police") {
+      return res.status(404).json({
+        success: false,
+        message: "Target police officer not found.",
+        code: "OFFICER_NOT_FOUND"
+      });
+    }
+
+    if (targetOfficer.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Target officer account is pending administrative approval and cannot lead case squads.",
+        code: "OFFICER_NOT_VERIFIED"
+      });
+    }
+
+    if (targetOfficer.isActive === false) {
+      return res.status(400).json({
+        success: false,
+        message: "Target officer is currently inactive and cannot be assigned to cases.",
+        code: "OFFICER_INACTIVE"
+      });
+    }
+
+    // Cross-station assignment restriction (police users cannot assign across different stations)
+    const userStation = req.user.organization || req.user.station;
+    const targetStation = targetOfficer.organization || targetOfficer.station;
+    if (req.user.role === "police" && userStation && targetStation && userStation !== targetStation) {
+      return res.status(403).json({
+        success: false,
+        message: "Officers cannot be assigned from a different police station or jurisdiction.",
+        code: "CROSS_STATION_ASSIGNMENT_DENIED"
+      });
+    }
+
+    // Authoritative badge number derived from target officer's registered record
+    const assignedBadge = targetOfficer.phone ? `DL-POL-${targetOfficer.phone.slice(-4)}` : "DL-POL-0000";
+
     missingCase.assignedOfficer = {
-      id: assignedId,
-      name: assignedName,
+      id: targetOfficer._id,
+      name: targetOfficer.name,
       badgeNumber: assignedBadge,
       assignedAt: new Date()
     };
+
+    // Auto-transition reported or under_verification status to active upon squad assignment
+    if (["reported", "under_verification"].includes(missingCase.status)) {
+      missingCase.status = "active";
+    }
 
     ensureNotesArray(missingCase);
     const currentBadge = req.user.phone ? `DL-POL-${req.user.phone.slice(-4)}` : "DL-POL-0000";
@@ -874,7 +1017,7 @@ exports.assignOfficer = async (req, res, next) => {
       officerId: req.user._id,
       officerName: req.user.name,
       badge: currentBadge,
-      text: `Reassigned case squad lead to ${assignedName} (${assignedBadge}).`,
+      text: `Assigned case squad lead to ${targetOfficer.name} (${assignedBadge}).`,
       createdAt: new Date()
     });
     missingCase.markModified("investigationNotes");
@@ -889,17 +1032,17 @@ exports.assignOfficer = async (req, res, next) => {
       outcome: "success",
       metadata: {
         caseId: missingCase._id.toString(),
-        assignedOfficerId: assignedId.toString(),
-        assignedOfficerName: assignedName,
+        assignedOfficerId: targetOfficer._id.toString(),
+        assignedOfficerName: targetOfficer.name,
         assignedBadge
       }
     });
 
     // Dispatch assignment notification to assigned officer (non-blocking)
     try {
-      if (officerId && officerId.toString() !== req.user._id.toString()) {
-        createNotification({
-          recipientId: officerId,
+      if (targetOfficer._id.toString() !== req.user._id.toString()) {
+        notificationService.createNotification({
+          recipientId: targetOfficer._id,
           senderId: req.user._id,
           recipientRole: "police",
           type: "case_updated",
@@ -918,8 +1061,8 @@ exports.assignOfficer = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `Case successfully assigned to ${assignedName}.`,
-      case: missingCase.toSafeObject()
+      message: `Case successfully assigned to Officer ${targetOfficer.name}.`,
+      case: missingCase.toSafeObject({ role: req.user.role, viewerId: req.user._id })
     });
   } catch (error) {
     next(error);
@@ -1270,7 +1413,7 @@ exports.reviewAIMatch = async (req, res, next) => {
         const canNotify = (mongoose.connection && mongoose.connection.readyState === 1) ||
           (Notification.prototype.save !== mongoose.Model.prototype.save);
         if (guardianId && canNotify) {
-          createNotification({
+          notificationService.createNotification({
             recipientId: guardianId,
             senderId: req.user._id,
             recipientRole: "parent",

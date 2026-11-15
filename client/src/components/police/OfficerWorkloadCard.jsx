@@ -10,13 +10,23 @@ export const OfficerWorkloadCard = ({ officer, onReassignClick }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
-            src={officer.avatar}
+            src={officer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(officer.name || "Officer")}&background=1e293b&color=60a5fa`}
             alt={officer.name}
             className="w-12 h-12 rounded-xl object-cover ring-2 ring-blue-500/30 shrink-0"
+            onError={(e) => {
+              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(officer.name || "Officer")}&background=1e293b&color=60a5fa`;
+            }}
           />
           <div>
             <h4 className="text-sm font-bold text-white">{officer.name}</h4>
-            <span className="text-[10px] text-teal-400 font-mono block">{officer.badgeNumber} • {officer.rank}</span>
+            <span className="text-[10px] text-teal-400 font-mono block">
+              {officer.badgeNumber} • {officer.rank || "Officer"}
+            </span>
+            {officer.station && (
+              <span className="text-[9px] text-slate-400 font-mono block truncate max-w-[180px]">
+                {officer.station}
+              </span>
+            )}
           </div>
         </div>
 
