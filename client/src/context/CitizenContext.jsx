@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import {
   searchMissingChildPhoto,
   submitSightingReport,
   getMySightings,
-  getUserNotifications
+  getSightingDetails,
+  getUserNotifications,
+  getNearbyFacilities
 } from "@/services/citizenService";
 
 const CitizenContext = createContext();
@@ -16,31 +18,90 @@ export const useCitizen = () => {
   return context;
 };
 
-export const CitizenProvider = ({ children }) => {
+/**
+ * Normalizes backend Sighting model to consistent client UI object
+ */
+export function normalizeSightingForUi(s) {
+  if (!s) return null;
+  const id = (s._id || s.id || "").toString();
+  const reportNumber = s.reportNumber || (id ? `SR-${id.slice(-6).toUpperCase()}` : "SR-PENDING");
 
-  // Existing Found Reports by this Citizen Helper (populated from MongoDB Sighting records)
+  let statusLabel = "Under Review";
+  if (s.status === "verified") statusLabel = "Verified";
+  else if (s.status === "dismissed") statusLabel = "Resolved";
+  else if (s.status === "submitted" || s.status === "under_review") statusLabel = "Under Review";
+
+  const loc = s.location || {};
+  const locationString =
+    loc.address ||
+    [loc.landmark, loc.city, loc.state].filter(Boolean).join(", ") ||
+    "Location on record";
+
+  const child = s.childId && typeof s.childId === "object" ? s.childId : {};
+  const kase = s.caseId && typeof s.caseId === "object" ? s.caseId : {};
+
+  return {
+    id,
+    _id: id,
+    reportNumber,
+    rawStatus: s.status || "submitted",
+    status: statusLabel,
+    date: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just Now",
+    observedAt: s.observedAt
+      ? new Date(s.observedAt).toLocaleString()
+      : s.createdAt
+      ? new Date(s.createdAt).toLocaleString()
+      : "Recently",
+    location: locationString,
+    rawLocation: loc,
+    landmark: loc.landmark || "",
+    latitude: loc.latitude !== undefined && loc.latitude !== null ? Number(loc.latitude) : undefined,
+    longitude: loc.longitude !== undefined && loc.longitude !== null ? Number(loc.longitude) : undefined,
+    accuracy: loc.accuracy,
+    source: loc.source || "manual",
+    approxAge: s.appearance?.approxAge || "Not recorded",
+    approxGender: s.appearance?.approxGender || "Not specified",
+    clothing: s.appearance?.clothing || "Not specified",
+    distinctiveFeatures: s.appearance?.distinctiveFeatures || "",
+    notes: s.description || "",
+    safetyState: s.safetyState || "Safe",
+    reviewNotes: s.reviewNotes || "",
+    reviewedAt: s.reviewedAt ? new Date(s.reviewedAt).toLocaleString() : null,
+    photo: s.photo || child.photoUrl || "",
+    matchedCaseId: kase.caseNumber || (kase._id ? `MC-${kase._id.toString().slice(-6).toUpperCase()}` : null),
+    matchedChildName: child.fullName || null,
+    timeline: [
+      {
+        title: "Sighting Report Filed",
+        time: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just Now",
+        desc: `Report registered by citizen helper. Review status: ${s.status || "submitted"}.`
+      },
+      ...(s.reviewedAt
+        ? [
+            {
+              title: `Report Review: ${statusLabel}`,
+              time: new Date(s.reviewedAt).toLocaleString(),
+              desc: s.reviewNotes || `Status updated to ${statusLabel} by law enforcement.`
+            }
+          ]
+        : [])
+    ]
+  };
+}
+
+export const CitizenProvider = ({ children }) => {
+  // Database-backed Sighting records
   const [foundReports, setFoundReports] = useState([]);
   const [isLoadingSightings, setIsLoadingSightings] = useState(false);
   const [sightingsError, setSightingsError] = useState(null);
 
-  // Citizen Notifications (persisted from API)
+  // Real Notifications from API
   const [notifications, setNotifications] = useState([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    getUserNotifications()
-      .then((res) => {
-        if (isMounted && Array.isArray(res?.notifications)) {
-          setNotifications(res.notifications);
-        }
-      })
-      .catch((err) => {
-        console.warn("[CitizenContext] Could not load notifications:", err.message);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Registered Assistance Facilities (Shelters & Support Units)
+  const [facilities, setFacilities] = useState([]);
+  const [isLoadingFacilities, setIsLoadingFacilities] = useState(false);
 
   // Active Found Child Workflow Session State
   const [workflowSession, setWorkflowSession] = useState({
@@ -57,12 +118,10 @@ export const CitizenProvider = ({ children }) => {
     matchedCandidate: null,
     searchOutcome: null,
     searchError: null,
-    contactRequestSent: false,
-    contactRequestStatus: "Pending", // Pending | Accepted | Declined
     locationSharingActive: false
   });
 
-  // Start Found Workflow
+  // Start Found Workflow (reset state cleanly)
   const startFoundWorkflow = () => {
     setWorkflowSession((prev) => {
       if (prev.photoUrl && prev.photoUrl.startsWith("blob:")) {
@@ -84,8 +143,6 @@ export const CitizenProvider = ({ children }) => {
         matchedCandidate: null,
         searchOutcome: null,
         searchError: null,
-        contactRequestSent: false,
-        contactRequestStatus: "Pending",
         locationSharingActive: false
       };
     });
@@ -96,7 +153,7 @@ export const CitizenProvider = ({ children }) => {
     setWorkflowSession((prev) => ({ ...prev, childSafeStatus: status }));
   };
 
-  // Set Photo (accepts file or url or both)
+  // Set Photo (file or URL)
   const setCapturedPhoto = (photoFileOrUrl, optionalUrl) => {
     let file = null;
     let url = null;
@@ -182,66 +239,14 @@ export const CitizenProvider = ({ children }) => {
     }
   };
 
-  // Request Official Law Enforcement Verification
-  const requestGuardianContact = () => {
-    setWorkflowSession((prev) => ({
-      ...prev,
-      contactRequestSent: true,
-      contactRequestStatus: "Pending Police Verification"
-    }));
-
-    setNotifications((prev) => [
-      {
-        id: `cn-${Date.now()}`,
-        title: "Official Verification Request Dispatched",
-        message: "Potential match lead dispatched to assigned law enforcement officers for official verification.",
-        time: "Just Now",
-        isRead: false,
-        type: "info"
-      },
-      ...prev
-    ]);
-  };
-
-  // Fetch real sightings and notifications from backend on mount
-  useEffect(() => {
-    loadCitizenSightings();
-    loadCitizenNotifications();
-  }, []);
-
-  const loadCitizenSightings = async () => {
+  // Load sighting reports submitted by the citizen
+  const loadCitizenSightings = useCallback(async () => {
     setIsLoadingSightings(true);
     setSightingsError(null);
     try {
       const realSightings = await getMySightings();
       if (Array.isArray(realSightings)) {
-        // Map backend Sighting documents to client report card format
-        const formatted = realSightings.map((s) => ({
-          id: s._id || s.id,
-          reportNumber: s.reportNumber || `SR-${(s._id || s.id).slice(-6).toUpperCase()}`,
-          date: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just Now",
-          location: s.location?.address || [s.location?.city, s.location?.state].filter(Boolean).join(", ") || "Location on record",
-          landmark: s.location?.landmark || "",
-          latitude: s.location?.latitude || "",
-          longitude: s.location?.longitude || "",
-          approxAge: s.appearance?.approxAge || "Not recorded",
-          approxGender: s.appearance?.approxGender || "Not specified",
-          clothing: s.appearance?.clothing || "Not specified",
-          photo: s.childId?.photoUrl || "",
-          status: s.status === "submitted" ? "Under Review" : (s.status === "verified" ? "Match Found" : "Resolved"),
-          safetyState: s.safetyState || "Safe",
-          contactStatus: "Pending Police Verification",
-          locationSharingActive: Boolean(s.location?.latitude && s.location?.longitude),
-          matchedCaseId: s.caseId?.caseNumber || (s.caseId?._id ? `MC-${s.caseId._id.slice(-6).toUpperCase()}` : null),
-          matchedChildName: s.childId?.fullName || null,
-          timeline: [
-            {
-              title: "Sighting Report Filed",
-              time: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Just Now",
-              desc: `Report registered by citizen helper. Review status: ${s.status}.`
-            }
-          ]
-        }));
+        const formatted = realSightings.map(normalizeSightingForUi).filter(Boolean);
         setFoundReports(formatted);
       }
     } catch (err) {
@@ -250,27 +255,79 @@ export const CitizenProvider = ({ children }) => {
     } finally {
       setIsLoadingSightings(false);
     }
-  };
+  }, []);
 
-  const loadCitizenNotifications = async () => {
+  // Load real notifications from backend
+  const loadCitizenNotifications = useCallback(async () => {
+    setIsLoadingNotifications(true);
     try {
       const realNotifs = await getUserNotifications();
-      if (Array.isArray(realNotifs) && realNotifs.length > 0) {
+      if (Array.isArray(realNotifs)) {
         setNotifications(
           realNotifs.map((n) => ({
             id: n._id || n.id,
             title: n.title,
             message: n.message,
-            time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Recently",
+            time: n.createdAt
+              ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "Recently",
             isRead: n.isRead,
-            type: n.type === "sighting_reported" ? "info" : (n.type === "sighting_reviewed" ? "success" : "warning")
+            type:
+              n.type === "sighting_reported"
+                ? "info"
+                : n.type === "sighting_reviewed"
+                ? "success"
+                : "warning"
           }))
         );
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn("[CitizenContext] Could not load notifications:", err.message);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  }, []);
+
+  // Load registered assistance facilities
+  const loadNearbyFacilities = useCallback(async () => {
+    setIsLoadingFacilities(true);
+    try {
+      const list = await getNearbyFacilities();
+      setFacilities(list);
+    } catch (err) {
+      console.warn("[CitizenContext] Could not load facilities:", err.message);
+      setFacilities([]);
+    } finally {
+      setIsLoadingFacilities(false);
+    }
+  }, []);
+
+  // Direct fetch single sighting from API (guarantees direct URL navigation & browser refresh work)
+  const fetchReportDetails = async (reportId) => {
+    try {
+      const raw = await getSightingDetails(reportId);
+      if (raw) {
+        const formatted = normalizeSightingForUi(raw);
+        setFoundReports((prev) => {
+          const exists = prev.some(
+            (r) => r.id === formatted.id || r.reportNumber === formatted.reportNumber
+          );
+          if (exists) {
+            return prev.map((r) =>
+              r.id === formatted.id || r.reportNumber === formatted.reportNumber ? formatted : r
+            );
+          }
+          return [formatted, ...prev];
+        });
+        return formatted;
+      }
+      return null;
+    } catch (err) {
+      throw err;
+    }
   };
 
-  // Submit Real Sighting Report to Node.js Backend API
+  // Submit Real Sighting Report to Backend API
   const submitRealSighting = async (reportPayload) => {
     const apiResult = await submitSightingReport({
       caseId: reportPayload.caseId,
@@ -280,7 +337,10 @@ export const CitizenProvider = ({ children }) => {
         address: reportPayload.location || "",
         landmark: reportPayload.landmark || "",
         latitude: reportPayload.latitude,
-        longitude: reportPayload.longitude
+        longitude: reportPayload.longitude,
+        accuracy: reportPayload.accuracy,
+        source: reportPayload.source || "manual",
+        capturedAt: reportPayload.capturedAt
       },
       appearance: {
         approxAge: reportPayload.approxAge || "",
@@ -293,38 +353,15 @@ export const CitizenProvider = ({ children }) => {
     });
 
     const s = apiResult.sighting;
-    const clientReport = {
-      id: s.id || s._id,
-      reportNumber: s.reportNumber,
-      date: new Date().toLocaleString(),
-      location: s.location?.address || reportPayload.location || "Location on record",
-      landmark: s.location?.landmark || reportPayload.landmark || "",
-      latitude: s.location?.latitude || reportPayload.latitude || "",
-      longitude: s.location?.longitude || reportPayload.longitude || "",
-      approxAge: s.appearance?.approxAge || reportPayload.approxAge || "",
-      approxGender: s.appearance?.approxGender || reportPayload.approxGender || "",
-      clothing: s.appearance?.clothing || reportPayload.clothing || "",
-      photo: reportPayload.photo || "",
-      status: "Under Review",
-      safetyState: s.safetyState || "Safe",
-      contactStatus: "Pending Police Verification",
-      locationSharingActive: Boolean(s.location?.latitude && s.location?.longitude),
-      matchedCaseId: reportPayload.caseNumber || null,
-      matchedChildName: reportPayload.childName || null,
-      timeline: [
-        {
-          title: "Sighting Report Filed",
-          time: "Just Now",
-          desc: "Report registered persistently in MongoDB. Authorized responders notified."
-        }
-      ]
-    };
+    const clientReport = normalizeSightingForUi(s);
 
-    setFoundReports((prev) => [clientReport, ...prev]);
+    if (clientReport) {
+      setFoundReports((prev) => [clientReport, ...prev]);
+    }
     return clientReport;
   };
 
-  // Submit Found Child Report
+  // Fallback submit found report (redirects to submitRealSighting if caseId present)
   const submitFoundReport = async (reportPayload) => {
     if (reportPayload.caseId) {
       return await submitRealSighting(reportPayload);
@@ -353,7 +390,7 @@ export const CitizenProvider = ({ children }) => {
     return newReport;
   };
 
-  // Toggle Location Sharing
+  // Toggle Location Sharing for a report
   const toggleLocationSharing = (reportId, isSharing) => {
     setFoundReports((prev) =>
       prev.map((r) => {
@@ -368,9 +405,38 @@ export const CitizenProvider = ({ children }) => {
     );
   };
 
+  // In-memory finder
   const getReportById = (reportId) => {
     return foundReports.find((r) => r.id === reportId || r.reportNumber === reportId);
   };
+
+  // Real database-backed statistics
+  const stats = useMemo(() => {
+    const totalSubmitted = foundReports.length;
+    const underReview = foundReports.filter(
+      (r) => r.rawStatus === "submitted" || r.rawStatus === "under_review" || r.status === "Under Review"
+    ).length;
+    const verified = foundReports.filter(
+      (r) => r.rawStatus === "verified" || r.status === "Verified" || r.status === "Match Found"
+    ).length;
+    const resolved = foundReports.filter(
+      (r) => r.rawStatus === "dismissed" || r.status === "Resolved"
+    ).length;
+
+    return {
+      totalSubmitted,
+      underReview,
+      verified,
+      resolved
+    };
+  }, [foundReports]);
+
+  // Initial load on mount
+  useEffect(() => {
+    loadCitizenSightings();
+    loadCitizenNotifications();
+    loadNearbyFacilities();
+  }, [loadCitizenSightings, loadCitizenNotifications, loadNearbyFacilities]);
 
   return (
     <CitizenContext.Provider
@@ -379,22 +445,26 @@ export const CitizenProvider = ({ children }) => {
         isLoadingSightings,
         sightingsError,
         notifications,
+        isLoadingNotifications,
+        facilities,
+        isLoadingFacilities,
+        stats,
         workflowSession,
         startFoundWorkflow,
         setSafetyStatus,
         setCapturedPhoto,
         runAIMatching,
-        requestGuardianContact,
         submitFoundReport,
         submitRealSighting,
         loadCitizenSightings,
         loadCitizenNotifications,
+        loadNearbyFacilities,
         toggleLocationSharing,
-        getReportById
+        getReportById,
+        fetchReportDetails
       }}
     >
       {children}
     </CitizenContext.Provider>
   );
 };
-

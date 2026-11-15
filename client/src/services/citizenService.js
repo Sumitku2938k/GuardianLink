@@ -406,3 +406,21 @@ export async function markAllNotificationsAsRead() {
   }
 }
 
+/**
+ * Retrieves genuine registered assistance facilities (shelters, stations).
+ *
+ * @returns {Promise<Array<Object>>}
+ */
+export async function getNearbyFacilities() {
+  try {
+    const res = await api.get("/api/citizen/nearby-facilities");
+    if (res.data && res.data.success) {
+      return res.data.facilities || [];
+    }
+    return [];
+  } catch (err) {
+    console.warn("[citizenService] Could not load nearby facilities:", err.message);
+    return [];
+  }
+}
+

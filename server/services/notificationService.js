@@ -85,18 +85,19 @@ const createNotification = async ({
  * @param {Object} params.child - Child Mongoose document
  * @returns {Promise<{ policeNotified: number, guardianNotified: boolean, notificationIds: string[] }>}
  */
-const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, child }) => {
+const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, child = {} }) => {
   const notificationIds = [];
   let policeNotifiedCount = 0;
   let guardianNotified = false;
 
   const loc = sighting.location || {};
   const locationSummary = [loc.landmark, loc.city, loc.state].filter(Boolean).join(", ") || loc.address || "Location on record";
+  const childName = child?.fullName || missingCase?.childName || "Missing Child";
 
   const commonData = {
     sightingId: sighting._id,
     caseId: missingCase._id,
-    childId: child._id,
+    childId: child?._id || missingCase.childId || sighting.childId,
     caseNumber: missingCase.caseNumber,
     reportNumber: sighting.reportNumber,
     locationSummary
@@ -130,7 +131,7 @@ const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, ch
           recipientRole: "police",
           type: "sighting_reported",
           title: `New Sighting Report: Case #${missingCase.caseNumber}`,
-          message: `A citizen submitted Sighting #${sighting.reportNumber} for ${child.fullName || "Missing Child"} near ${locationSummary}. Review report details for verification.`,
+          message: `A citizen submitted Sighting #${sighting.reportNumber} for ${childName} near ${locationSummary}. Review report details for verification.`,
           data: commonData
         });
         notificationIds.push(notif.id);
@@ -141,7 +142,7 @@ const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, ch
     }
 
     // 2. Resolve verified guardian (Child.guardianId or MissingCase.reportedBy)
-    const guardianId = child.guardianId || missingCase.reportedBy;
+    const guardianId = child?.guardianId || missingCase?.reportedBy;
     if (guardianId && mongoose.Types.ObjectId.isValid(guardianId)) {
       try {
         const guardian = await User.findById(guardianId);
@@ -151,8 +152,8 @@ const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, ch
             senderId: sighting.reportedBy,
             recipientRole: "parent",
             type: "sighting_reported",
-            title: `New Sighting Reported for ${child.fullName}`,
-            message: `A citizen helper reported a potential sighting for ${child.fullName} near ${locationSummary}. Law enforcement officers have been alerted to assess the report.`,
+            title: `New Sighting Reported for ${childName}`,
+            message: `A citizen helper reported a potential sighting for ${childName} near ${locationSummary}. Law enforcement officers have been alerted to assess the report.`,
             data: commonData
           });
           notificationIds.push(guardianNotif.id);
@@ -160,6 +161,26 @@ const notifyAuthorizedRespondersForSighting = async ({ sighting, missingCase, ch
         }
       } catch (guardianErr) {
         console.error(`[NotificationService] Failed to notify guardian ${guardianId}:`, guardianErr.message);
+      }
+    }
+
+    // 3. Confirm receipt for the reporting citizen
+    if (sighting.reportedBy && mongoose.Types.ObjectId.isValid(sighting.reportedBy)) {
+      try {
+        const citizenNotif = await createNotification({
+          recipientId: sighting.reportedBy,
+          senderId: sighting.reportedBy,
+          recipientRole: "citizen",
+          type: "sighting_reported",
+          title: `Sighting Report #${sighting.reportNumber} Registered`,
+          message: `Your sighting report #${sighting.reportNumber} has been submitted successfully and queued for official responder review.`,
+          data: commonData
+        });
+        if (citizenNotif) {
+          notificationIds.push(citizenNotif.id);
+        }
+      } catch (citizenErr) {
+        console.warn("[NotificationService] Citizen receipt notification error:", citizenErr.message);
       }
     }
   } catch (err) {

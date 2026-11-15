@@ -1,38 +1,56 @@
 /**
- * GuardianLink — Found Child Real Search Results (Phase 6.10)
+ * GuardianLink — Found Child Real Search Results (Phase 20)
  *
  * Renders real backend search results without demo simulations:
  * - Displays all eligible candidates with strict "Potential Match" uncertainty notice
- * - Renders clean, neutral no-eligible-matches state
- * - Provides immediate actions to share location, submit sighting report, or retry
+ * - Connects candidate selection directly to official sighting report submission
+ * - Completely eliminates fake guardian contact modal simulation
+ * - Integrates 112 / 1098 emergency direct responder channels
  */
 
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
   ShieldCheck,
   AlertTriangle,
   FileText,
   RefreshCw,
-  Share2,
+  PhoneCall,
+  Lock,
   Sparkles
 } from "lucide-react";
 import { useCitizen } from "@/context/CitizenContext";
 import { MatchResultCard } from "@/components/citizen/MatchResultCard";
-import { GuardianContactModal } from "@/components/citizen/GuardianContactModal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 
 export default function FoundChildResult() {
   const navigate = useNavigate();
-  const { workflowSession, requestGuardianContact } = useCitizen();
+  const { workflowSession } = useCitizen();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const candidates = workflowSession.candidates || (workflowSession.matchedCandidate ? [workflowSession.matchedCandidate] : []);
+  const candidates =
+    workflowSession.candidates ||
+    (workflowSession.matchedCandidate ? [workflowSession.matchedCandidate] : []);
   const hasCandidates = candidates.length > 0 && workflowSession.aiResult === "match_found";
+
+  const handleReportSighting = (candidate) => {
+    navigate("/citizen/found-child/report", {
+      state: {
+        candidate,
+        caseId: candidate?.caseId || candidate?.id
+      }
+    });
+  };
+
+  const handleShareLocation = (candidate) => {
+    navigate("/citizen/found-child/location", {
+      state: {
+        candidate,
+        caseId: candidate?.caseId || candidate?.id
+      }
+    });
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -43,7 +61,7 @@ export default function FoundChildResult() {
             <span>Biometric Identification Result</span>
             {hasCandidates && (
               <Badge variant="warning" size="sm">
-                {candidates.length} Potential Match{candidates.length > 1 ? "es" : ""}
+                {candidates.length} Potential Lead{candidates.length > 1 ? "s" : ""}
               </Badge>
             )}
           </h1>
@@ -63,7 +81,7 @@ export default function FoundChildResult() {
         </Button>
       </div>
 
-      {/* Uncertainty Advisory Notice */}
+      {/* Mandatory Uncertainty Advisory Notice */}
       <div
         role="region"
         aria-label="Public Safety Advisory"
@@ -71,7 +89,7 @@ export default function FoundChildResult() {
       >
         <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
         <p className="leading-relaxed text-[11px]">
-          <strong>Notice:</strong> An AI similarity match is a potential lead, not verified identity or proof that a child is missing. Never confront anyone based solely on this result.
+          <strong>Notice:</strong> An AI similarity match is a potential lead, not verified identity or proof that a child is missing. Never confront or detain anyone based solely on this result. Submit an official Sighting Report so investigating officers can review the lead safely.
         </p>
       </div>
 
@@ -79,11 +97,10 @@ export default function FoundChildResult() {
         {hasCandidates ? (
           candidates.map((cand, idx) => (
             <MatchResultCard
-              key={cand.candidateId || idx}
+              key={cand.candidateId || cand.caseId || idx}
               candidate={cand}
-              onRequestContact={() => setIsModalOpen(true)}
-              onShareLocation={() => navigate("/citizen/found-child/location")}
-              onReportSighting={() => navigate("/citizen/found-child/report")}
+              onShareLocation={() => handleShareLocation(cand)}
+              onReportSighting={() => handleReportSighting(cand)}
             />
           ))
         ) : (
@@ -97,7 +114,7 @@ export default function FoundChildResult() {
                 No Eligible Potential Matches Found
               </h3>
               <p className="text-xs text-gray-500 leading-relaxed">
-                No active, disclosable missing child cases matched the submitted photograph above the required threshold.
+                No active missing child cases matched the submitted photograph above the required biometric threshold.
               </p>
             </div>
 
@@ -105,9 +122,9 @@ export default function FoundChildResult() {
               <div className="font-bold text-gray-700 dark:text-gray-300">
                 Next Steps to Help:
               </div>
-              <div>• This does not prove the child is not missing; a report may not yet have been filed.</div>
-              <div>• The photograph angle or lighting may have varied.</div>
-              <div>• Submitting an official Sighting Report queues the details for law enforcement desk review.</div>
+              <div>• A missing report for this child may not yet have been filed in the system.</div>
+              <div>• Angle, distance, lighting, or occlusions may affect facial feature recognition.</div>
+              <div>• You can still file an official Sighting Report to alert local police responders.</div>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
@@ -134,17 +151,30 @@ export default function FoundChildResult() {
         )}
       </motion.div>
 
-      {/* Guardian Contact Modal */}
-      {workflowSession.matchedCandidate && (
-        <GuardianContactModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          candidate={workflowSession.matchedCandidate}
-          requestSent={workflowSession.contactRequestSent}
-          requestStatus={workflowSession.contactRequestStatus}
-          onRequestSend={requestGuardianContact}
-        />
-      )}
+      {/* Emergency Responder Channels */}
+      <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3">
+        <div className="flex items-center gap-2 text-teal-400 font-bold text-xs uppercase tracking-wider">
+          <PhoneCall className="w-4 h-4" />
+          <span>Immediate Danger / Emergency Protocols</span>
+        </div>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          If you believe the child is in immediate danger, requires urgent medical care, or is distressed, contact national emergency responders directly:
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <a
+            href="tel:1098"
+            className="p-3 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-300 font-bold text-center hover:bg-teal-500/25 transition-colors text-xs flex items-center justify-center gap-2"
+          >
+            <PhoneCall className="w-3.5 h-3.5" /> Call 1098 (Childline 24x7)
+          </a>
+          <a
+            href="tel:112"
+            className="p-3 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-300 font-bold text-center hover:bg-blue-500/25 transition-colors text-xs flex items-center justify-center gap-2"
+          >
+            <PhoneCall className="w-3.5 h-3.5" /> Call 112 (National Police)
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

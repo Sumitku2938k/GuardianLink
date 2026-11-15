@@ -11,6 +11,7 @@
 
 const citizenPhotoSearchService = require("../services/citizenPhotoSearchService");
 const auditLogService = require("../services/auditLogService");
+const Shelter = require("../models/Shelter");
 const {
   AIServiceTimeoutError,
   AIServiceUnavailableError,
@@ -148,6 +149,47 @@ exports.searchMissingChild = async (req, res, next) => {
       });
     }
 
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get genuine registered assistance facilities (Shelters & Support Units)
+ * @route   GET /api/citizen/nearby-facilities
+ * @access  Private (Citizen, Parent, Police, NGO, Admin)
+ */
+exports.getNearbyFacilities = async (req, res, next) => {
+  try {
+    const shelters = await Shelter.find({ status: "active" })
+      .select("name address capacity activePlacements contactPhone contactEmail status facilities")
+      .lean();
+
+    const facilities = shelters.map((s) => ({
+      id: s._id.toString(),
+      name: s.name,
+      type: "shelter",
+      category: "Registered NGO Child Shelter",
+      address: s.address?.address || s.address?.street || "",
+      city: s.address?.city || "",
+      state: s.address?.state || "",
+      pinCode: s.address?.pinCode || s.address?.postalCode || "",
+      latitude: s.address?.latitude !== undefined ? s.address.latitude : s.location?.coordinates?.[1],
+      longitude: s.address?.longitude !== undefined ? s.address.longitude : s.location?.coordinates?.[0],
+      phone: s.contactPhone || s.contactNumber || "",
+      contactPhone: s.contactPhone || s.contactNumber || "",
+      contactEmail: s.contactEmail || "",
+      status: "Verified & Operational",
+      totalCapacity: s.capacity,
+      availableBeds: Math.max(0, s.capacity - (s.activePlacements || 0))
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: facilities.length,
+      data: facilities,
+      facilities
+    });
+  } catch (error) {
     next(error);
   }
 };

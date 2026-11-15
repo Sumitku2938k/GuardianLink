@@ -18,10 +18,13 @@ const authenticate = require("../middleware/authenticate");
 const authorize = require("../middleware/authorize");
 const { uploadPhoto } = require("../middleware/upload");
 const { photoSearchRateLimiter } = require("../middleware/rateLimiter");
-const { searchMissingChild } = require("../controllers/citizenController");
+const { searchMissingChild, getNearbyFacilities } = require("../controllers/citizenController");
 
 // Guard all citizen routes: Authenticated platform users only
 router.use(authenticate, authorize("citizen", "parent", "police", "ngo", "admin"));
+
+// Nearby genuine registered assistance facilities (Shelters)
+router.get("/nearby-facilities", getNearbyFacilities);
 
 // Primary citizen search endpoint
 router.post(

@@ -227,14 +227,19 @@ const getMySightings = async (userId, options = {}) => {
  * @returns {Promise<Object>}
  */
 const getSightingById = async (sightingId, requestingUser) => {
-  if (!sightingId || !mongoose.Types.ObjectId.isValid(sightingId)) {
+  let query = null;
+  if (sightingId && mongoose.Types.ObjectId.isValid(sightingId)) {
+    query = { _id: sightingId };
+  } else if (typeof sightingId === "string" && sightingId.trim().toUpperCase().startsWith("SR-")) {
+    query = { sightingNumber: sightingId.trim().toUpperCase() };
+  } else {
     const error = new Error("Invalid sighting report ID format.");
     error.status = 400;
     error.code = "INVALID_SIGHTING_ID";
     throw error;
   }
 
-  const sighting = await Sighting.findById(sightingId)
+  const sighting = await Sighting.findOne(query)
     .populate("caseId", "caseNumber status priority lastSeenLocation reportedBy")
     .populate("childId", "fullName photoUrl age gender guardianId");
 
@@ -245,8 +250,17 @@ const getSightingById = async (sightingId, requestingUser) => {
     throw error;
   }
 
-  const userIdStr = requestingUser._id.toString();
-  const isReporter = sighting.reportedBy.toString() === userIdStr;
+  const userIdStr = requestingUser && requestingUser._id
+    ? requestingUser._id.toString()
+    : requestingUser && requestingUser.id
+    ? requestingUser.id.toString()
+    : "";
+  const reporterIdStr = sighting.reportedBy
+    ? sighting.reportedBy._id
+      ? sighting.reportedBy._id.toString()
+      : sighting.reportedBy.toString()
+    : "";
+  const isReporter = Boolean(userIdStr && reporterIdStr && userIdStr === reporterIdStr);
   const isAuthorizedResponder = ["police", "admin", "ngo"].includes(requestingUser.role);
   const isCaseGuardian =
     (sighting.childId && sighting.childId.guardianId && sighting.childId.guardianId.toString() === userIdStr) ||
