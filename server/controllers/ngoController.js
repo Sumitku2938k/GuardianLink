@@ -12,7 +12,9 @@
 
 const ngoService = require("../services/ngoService");
 const Handover = require("../models/Handover");
+const User = require("../models/User");
 const auditLogService = require("../services/auditLogService");
+const citizenPhotoSearchService = require("../services/citizenPhotoSearchService");
 
 // Helper to enforce verified status
 const ensureApproved = (req, res) => {
@@ -546,6 +548,223 @@ exports.completeHandover = async (req, res, next) => {
       success: true,
       message: "Handover successfully completed and child released into verified custody.",
       handover
+    });
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+        code: error.code
+      });
+    }
+    next(error);
+  }
+};
+
+// @desc    Get authenticated NGO organization profile and license info
+// @route   GET /api/ngo/profile
+// @access  Private (NGO, Admin)
+exports.getNgoProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select(
+      "name email phone organization role status isVerified profilePhoto city state pinCode address registrationNumber registrationAuthority registrationDate darpanId verifiedAt rejectionReason createdAt"
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "NGO user profile not found.",
+        code: "USER_NOT_FOUND"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      profile: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        organization: user.organization || user.name,
+        role: user.role,
+        status: user.status,
+        isVerified: Boolean(user.isVerified),
+        registrationNumber: user.registrationNumber || "",
+        registrationAuthority: user.registrationAuthority || "",
+        registrationDate: user.registrationDate || null,
+        darpanId: user.darpanId || "",
+        address: user.address || "",
+        city: user.city || "",
+        state: user.state || "",
+        pinCode: user.pinCode || "",
+        verifiedAt: user.verifiedAt || null,
+        profilePhoto: user.profilePhoto || "",
+        rejectionReason: user.rejectionReason || "",
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update authenticated NGO organization profile and licensing details
+// @route   PATCH /api/ngo/profile
+// @access  Private (NGO, Admin)
+exports.updateNgoProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "NGO user profile not found.",
+        code: "USER_NOT_FOUND"
+      });
+    }
+
+    const {
+      organization,
+      phone,
+      address,
+      city,
+      state,
+      pinCode,
+      registrationNumber,
+      registrationAuthority,
+      registrationDate,
+      darpanId
+    } = req.body || {};
+
+    // Update allowed fields (strictly ignoring role, status, isVerified, verifiedAt, passwordHash)
+    if (organization !== undefined) user.organization = String(organization).trim();
+    if (phone !== undefined) user.phone = String(phone).trim();
+    if (address !== undefined) user.address = String(address).trim();
+    if (city !== undefined) user.city = String(city).trim();
+    if (state !== undefined) user.state = String(state).trim();
+    if (pinCode !== undefined) user.pinCode = String(pinCode).trim();
+    if (registrationNumber !== undefined) user.registrationNumber = String(registrationNumber).trim();
+    if (registrationAuthority !== undefined) user.registrationAuthority = String(registrationAuthority).trim();
+    if (darpanId !== undefined) user.darpanId = String(darpanId).trim();
+    if (registrationDate !== undefined) {
+      user.registrationDate = registrationDate ? new Date(registrationDate) : null;
+    }
+
+    await user.save();
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "NGO_PROFILE_UPDATED",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "success",
+      metadata: {
+        userId: user._id.toString(),
+        organization: user.organization
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "NGO profile updated successfully.",
+      profile: {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        organization: user.organization,
+        role: user.role,
+        status: user.status,
+        isVerified: Boolean(user.isVerified),
+        registrationNumber: user.registrationNumber || "",
+        registrationAuthority: user.registrationAuthority || "",
+        registrationDate: user.registrationDate || null,
+        darpanId: user.darpanId || "",
+        address: user.address || "",
+        city: user.city || "",
+        state: user.state || "",
+        pinCode: user.pinCode || "",
+        verifiedAt: user.verifiedAt || null,
+        profilePhoto: user.profilePhoto || "",
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Optional AI Biometric Candidate Pre-check for child intake investigation
+// @route   POST /api/ngo/biometric-precheck
+// @access  Private (NGO, Admin)
+exports.biometricPrecheck = async (req, res, next) => {
+  try {
+    if (!ensureApproved(req, res)) return;
+
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({
+        success: false,
+        message: "An image file is required for biometric candidate pre-check.",
+        code: "IMAGE_REQUIRED"
+      });
+    }
+
+    let parsedLimit = 5;
+    if (req.body?.limit !== undefined) {
+      const l = parseInt(req.body.limit, 10);
+      if (!isNaN(l) && l >= 1 && l <= 20) {
+        parsedLimit = l;
+      }
+    }
+
+    let parsedThreshold = 0.6;
+    if (req.body?.threshold !== undefined) {
+      const t = parseFloat(req.body.threshold);
+      if (!isNaN(t) && t >= -1.0 && t <= 1.0) {
+        parsedThreshold = t;
+      }
+    }
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "AI_MATCH_REQUESTED",
+      entityType: "AI_SEARCH",
+      outcome: "success",
+      metadata: {
+        requester: "ngo",
+        limit: parsedLimit,
+        threshold: parsedThreshold
+      }
+    });
+
+    const searchResult = await citizenPhotoSearchService.searchMissingChildPhoto({
+      imageBuffer: req.file.buffer,
+      mimeType: req.file.mimetype || "image/jpeg",
+      filename: req.file.originalname || "precheck.jpg",
+      limit: parsedLimit,
+      threshold: parsedThreshold
+    });
+
+    await auditLogService.recordAuditEvent({
+      req,
+      action: "AI_MATCH_RETURNED",
+      entityType: "AI_SEARCH",
+      outcome: "success",
+      metadata: {
+        requester: "ngo",
+        matchFound: searchResult.matchFound,
+        totalCandidates: searchResult.totalCandidates || 0,
+        thresholdApplied: searchResult.thresholdApplied
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      matchFound: searchResult.matchFound,
+      candidates: searchResult.candidates || [],
+      totalCandidates: searchResult.totalCandidates || 0,
+      thresholdApplied: searchResult.thresholdApplied,
+      message: searchResult.message,
+      disclaimer: searchResult.disclaimer || "Potential biometric lead. Requires independent law enforcement and guardian verification."
     });
   } catch (error) {
     if (error.status) {

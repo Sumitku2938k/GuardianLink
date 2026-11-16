@@ -4,7 +4,10 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 
 export const CapacityCard = ({ shelterInfo }) => {
-  const occupancyPercentage = Math.round((shelterInfo.occupied / shelterInfo.totalCapacity) * 100);
+  const totalCapacity = Number(shelterInfo?.totalCapacity) || 0;
+  const occupied = Number(shelterInfo?.occupied) || 0;
+  const available = shelterInfo?.available !== undefined ? Number(shelterInfo.available) : Math.max(0, totalCapacity - occupied);
+  const occupancyPercentage = totalCapacity > 0 ? Math.min(100, Math.round((occupied / totalCapacity) * 100)) : 0;
   const isCapacityHigh = occupancyPercentage >= 85;
 
   return (
@@ -16,20 +19,20 @@ export const CapacityCard = ({ shelterInfo }) => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Shelter Capacity Overview</h3>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Helping Hands Kiosk - Sector 12</span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{shelterInfo?.name || "Registered Shelter Facility"}</span>
           </div>
         </div>
 
         <Badge variant={isCapacityHigh ? "warning" : "success"} size="sm" className="font-bold">
-          {occupancyPercentage}% Occupied ({shelterInfo.available} Spaces Open)
+          {occupancyPercentage}% Occupied ({available} Spaces Open)
         </Badge>
       </div>
 
       {/* Visual Capacity Bar */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
-          <span>Occupancy Progress: {shelterInfo.occupied} / {shelterInfo.totalCapacity} Beds</span>
-          <span>{shelterInfo.available} Available</span>
+          <span>Occupancy Progress: {occupied} / {totalCapacity} Beds</span>
+          <span>{available} Available</span>
         </div>
         <div className="w-full h-3 bg-gray-100 dark:bg-slate-950 rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-slate-800">
           <div
@@ -45,22 +48,22 @@ export const CapacityCard = ({ shelterInfo }) => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
         <div className="p-3 bg-gray-50 dark:bg-slate-950 rounded-xl border border-gray-150 dark:border-slate-800">
           <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-mono">Total Capacity</span>
-          <strong className="text-slate-850 dark:text-white text-lg font-black block mt-0.5">{shelterInfo.totalCapacity}</strong>
+          <strong className="text-slate-850 dark:text-white text-lg font-black block mt-0.5">{totalCapacity}</strong>
         </div>
 
         <div className="p-3 bg-gray-50 dark:bg-slate-950 rounded-xl border border-gray-150 dark:border-slate-800">
           <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-mono">Children in Care</span>
-          <strong className="text-teal-600 dark:text-teal-300 text-lg font-black block mt-0.5">{shelterInfo.occupied}</strong>
+          <strong className="text-teal-600 dark:text-teal-300 text-lg font-black block mt-0.5">{occupied}</strong>
         </div>
 
         <div className="p-3 bg-gray-50 dark:bg-slate-950 rounded-xl border border-gray-150 dark:border-slate-800">
           <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-mono">Available Spaces</span>
-          <strong className="text-emerald-600 dark:text-emerald-400 text-lg font-black block mt-0.5">{shelterInfo.available}</strong>
+          <strong className="text-emerald-600 dark:text-emerald-400 text-lg font-black block mt-0.5">{available}</strong>
         </div>
 
         <div className="p-3 bg-gray-50 dark:bg-slate-950 rounded-xl border border-gray-150 dark:border-slate-800">
           <span className="text-slate-500 dark:text-slate-400 block text-[10px] uppercase font-mono">Pending Intake</span>
-          <strong className="text-amber-600 dark:text-amber-400 text-lg font-black block mt-0.5">{shelterInfo.pendingIntake}</strong>
+          <strong className="text-amber-600 dark:text-amber-400 text-lg font-black block mt-0.5">{shelterInfo?.pendingIntake || 0}</strong>
         </div>
       </div>
 
@@ -68,7 +71,7 @@ export const CapacityCard = ({ shelterInfo }) => {
       {isCapacityHigh && (
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-650 dark:text-amber-300 text-xs flex items-center gap-2 font-semibold">
           <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 dark:text-amber-400" />
-          <span>Capacity Warning: Shelter is approaching max capacity (Only {shelterInfo.available} spaces remaining).</span>
+          <span>Capacity Warning: Shelter is approaching max capacity (Only {available} spaces remaining).</span>
         </div>
       )}
     </Card>

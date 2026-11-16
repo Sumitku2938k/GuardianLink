@@ -32,12 +32,12 @@ export default function NgoDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-slate-800 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider">{currentNgo?.name || "Helping Hands Organization"}</span>
+            <span className="text-xs font-mono font-bold text-teal-650 dark:text-teal-400 uppercase tracking-wider">{currentNgo?.name || "NGO Organization"}</span>
             <span className="text-slate-300 dark:text-slate-600">•</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">Shelter Kiosk Sector 12</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">{shelterInfo?.name || "Registered Shelter Facility"}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-850 dark:text-white tracking-tight">
-            Good morning, {currentNgo?.name || "Helping Hands Team"}
+            Good day, {currentNgo?.name || "NGO Care Team"}
           </h1>
           <p className="text-xs text-slate-550 dark:text-slate-400 mt-0.5">
             Here's the current status of children, shelter capacity, and active care coordination.

@@ -55,20 +55,24 @@ export default function NgoAnalytics() {
 
       <Card className="p-6 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 text-slate-850 dark:text-white space-y-4 shadow-md">
         <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          Care Pipeline Performance
+          Care Pipeline Performance Benchmarks
         </h3>
         <div className="space-y-3 text-xs">
           <div className="flex justify-between border-b border-gray-100 dark:border-slate-800 pb-2">
-            <span className="text-slate-500 dark:text-slate-400">Average Intake & Assessment Duration:</span>
-            <strong className="text-teal-605 dark:text-teal-300">25 minutes</strong>
+            <span className="text-slate-500 dark:text-slate-400">Average Duration in Temporary Care:</span>
+            <strong className="text-teal-605 dark:text-teal-300 font-mono">{ngoAnalytics?.avgTimeInCare || "N/A"}</strong>
           </div>
           <div className="flex justify-between border-b border-gray-100 dark:border-slate-800 pb-2">
-            <span className="text-slate-500 dark:text-slate-400">Average Time for Police & Guardian Match:</span>
-            <strong className="text-teal-605 dark:text-teal-300">1.8 days</strong>
+            <span className="text-slate-500 dark:text-slate-400">Active Shelter Bed Occupancy:</span>
+            <strong className="text-teal-605 dark:text-teal-300 font-mono">{ngoAnalytics?.occupancyRate || "0%"}</strong>
+          </div>
+          <div className="flex justify-between border-b border-gray-100 dark:border-slate-800 pb-2">
+            <span className="text-slate-500 dark:text-slate-400">Specialized Medical Attention Cases:</span>
+            <strong className="text-amber-600 dark:text-amber-400 font-mono">{ngoAnalytics?.medicalCasesCount || 0} active cases</strong>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-505 dark:text-slate-400">Successful Safe Reunification Handover:</span>
-            <strong className="text-emerald-600 dark:text-emerald-400">88.5%</strong>
+            <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{ngoAnalytics?.reunificationRate || "0%"}</strong>
           </div>
         </div>
       </Card>

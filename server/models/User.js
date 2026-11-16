@@ -71,6 +71,33 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ""
     },
+    address: {
+      type: String,
+      default: ""
+    },
+    registrationNumber: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    registrationAuthority: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    registrationDate: {
+      type: Date,
+      default: null
+    },
+    darpanId: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    verifiedAt: {
+      type: Date,
+      default: null
+    },
     lastLogin: {
       type: Date,
       default: Date.now

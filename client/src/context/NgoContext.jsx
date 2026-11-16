@@ -81,14 +81,41 @@ export const NgoProvider = ({ children }) => {
 
     try {
       // Parallel requests for all scoped NGO entities
-      const [statsRes, careRes, shelterRes, handoversRes, referralsRes, notifsRes] = await Promise.allSettled([
+      const [statsRes, careRes, shelterRes, handoversRes, referralsRes, notifsRes, profileRes] = await Promise.allSettled([
         ngoService.getNgoDashboardStats(),
         ngoService.getNgoCareRecords(),
         ngoService.getNgoShelters(),
         ngoService.getHandovers(),
         ngoService.getNgoReferrals(),
-        api.get("/api/notifications?limit=20")
+        api.get("/api/notifications?limit=20"),
+        ngoService.getNgoProfile()
       ]);
+
+      // 0. Process NGO Profile if available
+      if (profileRes.status === "fulfilled" && profileRes.value?.profile) {
+        const p = profileRes.value.profile;
+        setCurrentNgo({
+          id: p.id,
+          name: p.organization || p.name || "NGO Organization",
+          organization: p.organization || p.name || "NGO Organization",
+          registrationNumber: p.registrationNumber || "",
+          registrationAuthority: p.registrationAuthority || "",
+          registrationDate: p.registrationDate || null,
+          darpanId: p.darpanId || "",
+          status: p.status,
+          isVerified: Boolean(p.isVerified),
+          verificationStatus: p.status === "approved" ? "Verified Non-Profit Shelter" : "Verification Pending",
+          address: p.address || (p.city ? `${p.city}, ${p.state}` : ""),
+          city: p.city || "",
+          state: p.state || "",
+          pinCode: p.pinCode || "",
+          phone: p.phone || "",
+          email: p.email || "",
+          logo: p.profilePhoto || "",
+          verifiedAt: p.verifiedAt || null,
+          rejectionReason: p.rejectionReason || ""
+        });
+      }
 
       // 1. Process Care Records
       let normalizedCare = [];
@@ -338,16 +365,11 @@ export const NgoProvider = ({ children }) => {
           notes: handoverDetails.notes
         });
         handoverId = hReq.handover?._id || hReq.handover?.id;
-
-        // Auto-approve in test/dev flow if admin/police or authorized
-        try {
-          await ngoService.approveHandover(handoverId);
-        } catch {
-          // If approval requires separate police, proceed
-        }
+        refreshNgoData();
+        throw new Error("Handover request submitted for official police verification. Release cannot be completed until police approval is granted.");
       }
 
-      // Complete handover
+      // Complete handover (requires prior police/admin approval)
       const completeRes = await ngoService.completeHandover(handoverId, handoverDetails);
 
       setChildrenInCare((prev) =>
@@ -374,6 +396,34 @@ export const NgoProvider = ({ children }) => {
       return completeRes;
     } catch (err) {
       console.error("Handover completion error:", err);
+      throw err;
+    }
+  };
+
+  // Update NGO Organization Profile
+  const updateProfile = async (profileData) => {
+    try {
+      const response = await ngoService.updateNgoProfile(profileData);
+      if (response?.profile) {
+        const p = response.profile;
+        setCurrentNgo((prev) => ({
+          ...prev,
+          name: p.organization || p.name || prev.name,
+          organization: p.organization || p.name || prev.organization,
+          phone: p.phone !== undefined ? p.phone : prev.phone,
+          address: p.address !== undefined ? p.address : prev.address,
+          city: p.city !== undefined ? p.city : prev.city,
+          state: p.state !== undefined ? p.state : prev.state,
+          pinCode: p.pinCode !== undefined ? p.pinCode : prev.pinCode,
+          registrationNumber: p.registrationNumber !== undefined ? p.registrationNumber : prev.registrationNumber,
+          registrationAuthority: p.registrationAuthority !== undefined ? p.registrationAuthority : prev.registrationAuthority,
+          registrationDate: p.registrationDate !== undefined ? p.registrationDate : prev.registrationDate,
+          darpanId: p.darpanId !== undefined ? p.darpanId : prev.darpanId
+        }));
+      }
+      return response;
+    } catch (err) {
+      console.error("Profile update error:", err);
       throw err;
     }
   };
@@ -414,6 +464,7 @@ export const NgoProvider = ({ children }) => {
         updateCareStatus,
         createTransfer,
         confirmHandover,
+        updateProfile,
         getChildById
       }}
     >

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Heart,
@@ -15,6 +15,7 @@ import {
   Download
 } from "lucide-react";
 import { useNgo } from "@/context/NgoContext";
+import * as ngoService from "@/services/ngoService";
 import { CareStatusBadge } from "@/components/ngo/CareStatusBadge";
 import { MedicalStatusBadge } from "@/components/ngo/MedicalStatusBadge";
 import { CareUpdateFormModal } from "@/components/ngo/CareUpdateFormModal";

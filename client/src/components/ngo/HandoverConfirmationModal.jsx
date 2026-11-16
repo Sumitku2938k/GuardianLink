@@ -7,13 +7,25 @@ import { Button } from "@/components/ui/Button";
 export const HandoverConfirmationModal = ({ isOpen, onClose, child, onConfirmHandover }) => {
   const [step, setStep] = useState(1);
   const [handoverData, setHandoverData] = useState({
-    guardianName: "John Mehta",
-    verifierOfficer: "Insp. R. S. Rathore",
-    location: "Helping Hands Shelter Kiosk - Sector 12",
+    guardianName: child?.guardianName || child?.guardianDetails?.name || "Verified Legal Guardian",
+    verifierOfficer: child?.assignedOfficer || "Assigned Investigating Officer",
+    location: child?.shelterName || "Registered Care Shelter",
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    notes: "Verified identity with police escort present. Child safely handed over."
+    notes: "Verified identity in accordance with authorized police clearance. Child safely released."
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (child) {
+      setHandoverData({
+        guardianName: child.guardianName || child.guardianDetails?.name || "Verified Legal Guardian",
+        verifierOfficer: child.assignedOfficer || "Assigned Investigating Officer",
+        location: child.shelterName || "Registered Care Shelter",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        notes: "Verified identity in accordance with authorized police clearance. Child safely released."
+      });
+    }
+  }, [child]);
 
   const [errorMsg, setErrorMsg] = useState("");
 

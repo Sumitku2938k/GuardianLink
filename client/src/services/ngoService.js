@@ -288,3 +288,20 @@ export const completeHandover = async (handoverId, details = {}) => {
   const response = await api.patch(`/api/ngo/handovers/${handoverId}/complete`, details);
   return response.data;
 };
+
+export const getNgoProfile = async () => {
+  const response = await api.get("/api/ngo/profile");
+  return response.data;
+};
+
+export const updateNgoProfile = async (profileData) => {
+  const response = await api.patch("/api/ngo/profile", profileData);
+  return response.data;
+};
+
+export const biometricPrecheck = async (formData) => {
+  const response = await api.post("/api/ngo/biometric-precheck", formData, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  return response.data;
+};

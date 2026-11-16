@@ -3,7 +3,23 @@ const router = express.Router();
 
 const authenticate = require("../middleware/authenticate");
 const { requireRole } = require("../middleware/role");
+const { uploadPhoto } = require("../middleware/upload");
 const ngoController = require("../controllers/ngoController");
+
+// NGO Organization Profile & License
+router
+  .route("/profile")
+  .get(authenticate, requireRole(["ngo", "admin"]), ngoController.getNgoProfile)
+  .patch(authenticate, requireRole(["ngo", "admin"]), ngoController.updateNgoProfile);
+
+// Optional AI Biometric Candidate Pre-Check
+router.post(
+  "/biometric-precheck",
+  authenticate,
+  requireRole(["ngo", "admin"]),
+  uploadPhoto,
+  ngoController.biometricPrecheck
+);
 
 
 // Scoped Dashboard Stats
