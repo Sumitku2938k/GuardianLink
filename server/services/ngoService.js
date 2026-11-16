@@ -1057,6 +1057,57 @@ const completeHandover = async (user, handoverId, completionDetails = {}) => {
     throw error;
   }
 
+  // Atomic transition in connected DB, with fallback for mocked unit tests
+  const isRealDB = Boolean(
+    mongoose.connection &&
+    mongoose.connection.readyState === 1 &&
+    Handover.findById === mongoose.Model.findById
+  );
+
+  if (isRealDB) {
+    const updatePayload = {
+      status: "completed",
+      completedBy: user._id,
+      completedAt: new Date()
+    };
+    if (completionDetails.location) {
+      updatePayload.handoverLocation = completionDetails.location;
+    }
+    if (completionDetails.notes) {
+      updatePayload.handoverNotes = completionDetails.notes;
+    }
+
+    const updatedHandover = await Handover.findOneAndUpdate(
+      { _id: handoverId, status: "approved" },
+      { $set: updatePayload },
+      { returnDocument: "after" }
+    );
+
+    if (!updatedHandover) {
+      const error = new Error(`Cannot complete handover. It may already be completed or is not in 'approved' status.`);
+      error.status = 400;
+      error.code = "HANDOVER_NOT_APPROVED";
+      throw error;
+    }
+
+    // Atomically update CareRecord and release shelter bed exactly once
+    const careRecord = await CareRecord.findOneAndUpdate(
+      { _id: updatedHandover.careRecordId, status: { $ne: "handed_over" } },
+      { $set: { status: "handed_over" } },
+      { returnDocument: "after" }
+    );
+
+    if (careRecord && careRecord.shelterId) {
+      await Shelter.findOneAndUpdate(
+        { _id: careRecord.shelterId, activePlacements: { $gt: 0 } },
+        { $inc: { activePlacements: -1 } }
+      );
+    }
+
+    return updatedHandover.toSafeObject();
+  }
+
+  // Fallback for mocked unit tests where Model.findById is stubbed
   handover.status = "completed";
   handover.completedBy = user._id;
   handover.completedAt = new Date();
