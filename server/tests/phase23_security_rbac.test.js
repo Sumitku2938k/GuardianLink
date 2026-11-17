@@ -341,11 +341,12 @@ describe("GuardianLink Phase 23: Security, RBAC, IDOR & Privacy Validation", () 
 
   describe("SECURITY 6: FIR Document Private Storage Key Scrubbing", () => {
     it("ensures FIR.toSafeObject strips internal storageKey across all roles", async () => {
+      const dynamicFirNumber = `FIR-SEC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
       const fir = new FIR({
         missingCaseId: missingCaseA._id,
         childId: childA._id,
         submittedBy: parentUserA._id,
-        firNumber: "FIR-SEC-9988",
+        firNumber: dynamicFirNumber,
         policeStation: "North District",
         district: "North",
         state: "Delhi",
@@ -370,20 +371,24 @@ describe("GuardianLink Phase 23: Security, RBAC, IDOR & Privacy Validation", () 
       });
       await fir.save();
 
-      // Check for parent
-      const parentView = fir.toSafeObject({ role: "parent", userId: parentUserA._id.toString() });
-      assert.equal(parentView.storageKey, undefined);
-      assert.equal(parentView.documents[0].storageKey, undefined);
+      try {
+        // Check for parent
+        const parentView = fir.toSafeObject({ role: "parent", userId: parentUserA._id.toString() });
+        assert.equal(parentView.storageKey, undefined);
+        assert.equal(parentView.documents[0].storageKey, undefined);
 
-      // Check for police
-      const policeView = fir.toSafeObject({ role: "police", userId: policeOfficerStationA._id.toString() });
-      assert.equal(policeView.storageKey, undefined);
-      assert.equal(policeView.documents[0].storageKey, undefined);
+        // Check for police
+        const policeView = fir.toSafeObject({ role: "police", userId: policeOfficerStationA._id.toString() });
+        assert.equal(policeView.storageKey, undefined);
+        assert.equal(policeView.documents[0].storageKey, undefined);
 
-      // Check for citizen
-      const citizenView = fir.toSafeObject({ role: "citizen" });
-      assert.equal(citizenView.storageKey, undefined);
-      assert.equal(citizenView.documents[0].storageKey, undefined);
+        // Check for citizen
+        const citizenView = fir.toSafeObject({ role: "citizen" });
+        assert.equal(citizenView.storageKey, undefined);
+        assert.equal(citizenView.documents[0].storageKey, undefined);
+      } finally {
+        await FIR.deleteOne({ _id: fir._id }).catch(() => {});
+      }
     });
   });
 });
